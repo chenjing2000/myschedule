@@ -7,17 +7,15 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-dotnet restore
-if errorlevel 1 goto :fail
-dotnet build -c Release
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Publish.ps1"
 if errorlevel 1 goto :fail
 echo.
-echo Build succeeded.
-echo Output: bin\Release\net8.0-windows\
+echo Publish succeeded.
+echo Output: dist\OneSchedule\OneSchedule.exe
 pause
 exit /b 0
 :fail
 echo.
-echo Build failed.
+echo Publish failed. Close the running application before publishing.
 pause
 exit /b 1

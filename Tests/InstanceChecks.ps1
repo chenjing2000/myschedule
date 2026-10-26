@@ -20,7 +20,12 @@ $fixture = Join-Path $fixtureParent ([guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture -Force | Out-Null
 $processes = [Collections.Generic.List[Diagnostics.Process]]::new()
 function Launch([string]$name, [string]$arguments = '') {
-    $info = [Diagnostics.ProcessStartInfo]::new((Join-Path $fixture $name), $arguments)
+    if ([IO.Path]::GetExtension($name) -eq '.dll') {
+        $info = [Diagnostics.ProcessStartInfo]::new('dotnet', ('"' + (Join-Path $fixture $name) + '" ' + $arguments))
+    } else {
+        $info = [Diagnostics.ProcessStartInfo]::new((Join-Path $fixture $name), $arguments)
+    }
+    $info.CreateNoWindow = $true
     $info.WorkingDirectory = $fixture
     $info.UseShellExecute = $false
     $info.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
@@ -41,16 +46,21 @@ function CloseProbe($process) {
     if (-not $process.HasExited) { [void]$process.CloseMainWindow(); if (-not $process.WaitForExit(3000)) { $process.Kill(); $process.WaitForExit() } }
 }
 try {
-    foreach ($name in @('OneSchedule.exe','OneSchedule.dll','OneSchedule.deps.json','OneSchedule.runtimeconfig.json',
-                         'CalendarChecks.exe','CalendarChecks.dll','CalendarChecks.deps.json','CalendarChecks.runtimeconfig.json')) {
+    foreach ($name in @('OneSchedule.dll','OneSchedule.deps.json','OneSchedule.runtimeconfig.json',
+                         'CalendarChecks.dll','CalendarChecks.deps.json','CalendarChecks.runtimeconfig.json')) {
         $fileSource = if ($RuntimeDirectory -and $name.StartsWith('OneSchedule.')) { $RuntimeDirectory } else { $source }
         Copy-Item -LiteralPath (Join-Path $fileSource $name) -Destination $fixture
     }
-    $first = Launch 'OneSchedule.exe'
+    $applicationHost = 'OneSchedule.dll'
+    if ($RuntimeDirectory) {
+        Copy-Item -LiteralPath (Join-Path $RuntimeDirectory 'OneSchedule.exe') -Destination $fixture
+        $applicationHost = 'OneSchedule.exe'
+    }
+    $first = Launch $applicationHost
     $handle = WindowOf $first
     [void][InstanceProbeNative]::ShowWindow($handle, 6)
     Until { [InstanceProbeNative]::IsIconic($handle) } 'Could not minimize first instance'
-    $second = Launch 'OneSchedule.exe'
+    $second = Launch $applicationHost
     if (-not $second.WaitForExit(5000)) { throw 'Second launch created another running instance' }
     if ($second.ExitCode -ne 0) { throw 'Second launch did not exit successfully' }
     Until { -not [InstanceProbeNative]::IsIconic($handle) } 'Existing instance was not restored'
@@ -59,20 +69,20 @@ try {
     Until { [uint32]$foregroundProcess = 0; [void][InstanceProbeNative]::GetWindowThreadProcessId([InstanceProbeNative]::GetForegroundWindow(), [ref]$foregroundProcess); $foregroundProcess -eq $first.Id } 'Existing instance was not activated in foreground'
     Write-Output 'PASS: second launch exits and restores/activates the original process and window'
     CloseProbe $first
-    $modalHost = Launch 'CalendarChecks.exe' '--instance-modal-host'
+    $modalHost = Launch 'CalendarChecks.dll' '--instance-modal-host'
     $modalMain = WindowOf $modalHost
     Until { -not [InstanceProbeNative]::IsWindowEnabled($modalMain) } 'Modal host did not open its owned dialog'
     Until { $caption = [Text.StringBuilder]::new(100); $popup = [InstanceProbeNative]::GetLastActivePopup($modalMain); [void][InstanceProbeNative]::GetWindowText($popup, $caption, 100); $caption.ToString() -eq 'Instance probe editor' } 'Two nested modal dialogs did not open'
     $popup = [InstanceProbeNative]::GetLastActivePopup($modalMain)
     [void][InstanceProbeNative]::ShowWindow($modalMain, 6)
-    $third = Launch 'OneSchedule.exe'
+    $third = Launch $applicationHost
     if (-not $third.WaitForExit(5000) -or $third.ExitCode -ne 0) { throw 'Modal activation created another instance' }
     Until { [InstanceProbeNative]::GetForegroundWindow() -eq $popup } 'Owned modal was not activated'
     Write-Output 'PASS: restart after shutdown succeeds; repeat launch activates the deepest of two owned modal dialogs'
     CloseProbe $modalHost
     for ($attempt = 0; $attempt -lt 3; $attempt++) {
-        $left = Launch 'OneSchedule.exe'
-        $right = Launch 'OneSchedule.exe'
+        $left = Launch $applicationHost
+        $right = Launch $applicationHost
         Until { $left.Refresh(); $right.Refresh(); $left.HasExited -or $right.HasExited } 'Concurrent launches both stayed running'
         $survivor = if ($left.HasExited) { $right } else { $left }
         $loser = if ($left.HasExited) { $left } else { $right }

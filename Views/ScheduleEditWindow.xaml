@@ -14,6 +14,9 @@
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Height" Value="30"/>
         </Style>
+        <Style x:Key="NumericInputStyle" TargetType="TextBox" BasedOn="{StaticResource InputStyle}">
+            <Setter Property="Padding" Value="1,0"/>
+        </Style>
         <Style x:Key="ActionStyle" TargetType="Button" BasedOn="{StaticResource DialogActionButtonStyle}">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="Width" Value="60"/>
@@ -43,7 +46,7 @@
             </ComboBox>
             <TextBlock Text="重复" Width="36" TextAlignment="Center" VerticalAlignment="Center"/>
             <TextBox x:Name="RepeatCountTextBox" Width="42" Text="1" MaxLength="3" TextAlignment="Center" IsEnabled="False"
-                     PreviewTextInput="IntegerTextBox_PreviewTextInput" Style="{StaticResource InputStyle}"/>
+                     PreviewTextInput="IntegerTextBox_PreviewTextInput" Style="{StaticResource NumericInputStyle}"/>
             <TextBlock Text="次" Margin="4,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <TextBlock Grid.Row="1" Text="日期" VerticalAlignment="Center" Margin="0,0,6,8"/>
@@ -70,7 +73,7 @@
         <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBox x:Name="RemindMinutesTextBox" TextAlignment="Center" Width="42" Text="0" MaxLength="2"
                      PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown"
-                     PreviewTextInput="IntegerTextBox_PreviewTextInput" Style="{StaticResource InputStyle}"/>
+                     PreviewTextInput="IntegerTextBox_PreviewTextInput" Style="{StaticResource NumericInputStyle}"/>
             <TextBlock Text="分钟（0 = 准点提醒）" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="6,0,0,0"/>
         </StackPanel>
         <TextBlock x:Name="ValidationText" Grid.Row="6" Grid.ColumnSpan="2" Foreground="#C93B3B" TextWrapping="Wrap" VerticalAlignment="Top">
