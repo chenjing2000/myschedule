@@ -1,0 +1,79 @@
+﻿<Window x:Class="OneSchedule.ScheduleEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="日程编辑" Width="400" Height="370" FontSize="14"
+        ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Width" Value="64"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="InputStyle" TargetType="TextBox" BasedOn="{StaticResource RoundedTextBoxStyle}">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Height" Value="30"/>
+        </Style>
+        <Style x:Key="ActionStyle" TargetType="Button" BasedOn="{StaticResource DialogActionButtonStyle}">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="88"/>
+            <Setter Property="Height" Value="32"/>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="14" Background="{StaticResource SurfaceBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="60"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="类型" VerticalAlignment="Center" Margin="0,0,6,8"/>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="CalendarTypeButton" Content="阳历" Width="76" Height="30" FontSize="14"
+                    Style="{StaticResource ToolbarButtonStyle}" Click="CalendarTypeButton_Click" ToolTip="点击切换阳历/阴历"/>
+            <TextBlock Text="周期" VerticalAlignment="Center" Margin="16,0,8,0"/>
+            <ComboBox x:Name="RecurrenceCombo" SelectedValuePath="Tag">
+                <ComboBoxItem Content="无" Tag="None"/><ComboBoxItem Content="日" Tag="Daily"/>
+                <ComboBoxItem Content="周" Tag="Weekly"/><ComboBoxItem Content="月" Tag="Monthly"/>
+                <ComboBoxItem Content="年" Tag="Yearly"/>
+            </ComboBox>
+        </StackPanel>
+        <TextBlock Grid.Row="1" Text="日期" VerticalAlignment="Center" Margin="0,0,6,8"/>
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <ComboBox x:Name="YearCombo" Width="72" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="DatePart_SelectionChanged"/>
+            <TextBlock Text="年" VerticalAlignment="Center" Margin="2,0,2,0"/>
+            <ComboBox x:Name="MonthCombo" DisplayMemberPath="Text" SelectionChanged="DatePart_SelectionChanged"/>
+            <TextBlock Text="月" VerticalAlignment="Center" Margin="2,0,2,0"/>
+            <ComboBox x:Name="DayCombo" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="DatePart_SelectionChanged"/>
+            <TextBlock Text="日" VerticalAlignment="Center" Margin="2,0,0,0"/>
+        </StackPanel>
+        <TextBlock Grid.Row="2" Text="时间" VerticalAlignment="Center" Margin="0,0,6,8"/>
+        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <ComboBox x:Name="HourCombo"/>
+            <TextBlock Text="时" VerticalAlignment="Center" Margin="5,0,10,0"/>
+            <ComboBox x:Name="MinuteCombo"/>
+            <TextBlock Text="分" VerticalAlignment="Center" Margin="5,0,0,0"/>
+        </StackPanel>
+        <TextBlock Grid.Row="3" Text="事件" VerticalAlignment="Center" Margin="0,0,6,8"/>
+        <TextBox x:Name="EventNameTextBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
+        <TextBlock Grid.Row="4" Text="地点" VerticalAlignment="Center" Margin="0,0,6,8"/>
+        <TextBox x:Name="LocationTextBox" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
+        <TextBlock Grid.Row="5" Text="提前提醒" VerticalAlignment="Center" Margin="0,0,6,8"/>
+        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBox x:Name="RemindMinutesTextBox" TextAlignment="Center" Width="58" Text="0" MaxLength="2"
+                     PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown"
+                     PreviewTextInput="RemindMinutesTextBox_PreviewTextInput" Style="{StaticResource InputStyle}"/>
+            <TextBlock Text="分钟（0 = 准点提醒）" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="6,0,0,0"/>
+        </StackPanel>
+        <TextBlock x:Name="ValidationText" Grid.Row="6" Grid.ColumnSpan="2" Foreground="#C93B3B" TextWrapping="Wrap" VerticalAlignment="Top"/>
+        <Grid Grid.Row="7" Grid.ColumnSpan="2" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <Button Grid.Column="1" Content="取消" Style="{StaticResource ActionStyle}" IsCancel="True"/>
+            <Button Grid.Column="2" Content="保存" Style="{StaticResource ActionStyle}" Click="SaveButton_Click" IsDefault="True"/>
+        </Grid>
+    </Grid>
+</Window>

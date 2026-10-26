@@ -1,0 +1,209 @@
+﻿<UserControl x:Class="OneSchedule.CalendarView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OneSchedule"
+             xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework">
+    <UserControl.Resources>
+        <Style x:Key="WeekHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="Tag" Value="Weekend">
+                    <Setter Property="Foreground" Value="{StaticResource WeekendBrush}"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsReminderFlashDark, RelativeSource={RelativeSource AncestorType={x:Type local:CalendarView}}}" Value="True">
+                    <Setter Property="Foreground" Value="WhiteSmoke"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CalendarDayButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{StaticResource GridLineBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CellBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsReminderFlashDark, RelativeSource={RelativeSource AncestorType={x:Type local:CalendarView}}}" Value="True">
+                                <Setter TargetName="CellBorder" Property="Background" Value="#3F4652"/>
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SolarDayTextStyle" TargetType="TextBlock" BasedOn="{StaticResource SolarTextStyle}">
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
+                    <Setter Property="Foreground" Value="{StaticResource OtherMonthBrush}"/>
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsCurrentMonth}" Value="True"/>
+                        <Condition Binding="{Binding IsWeekend}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{StaticResource WeekendBrush}"/>
+                </MultiDataTrigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsToday}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource TodayTextBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsReminderFlashDark, RelativeSource={RelativeSource AncestorType={x:Type local:CalendarView}}}" Value="True">
+                    <Setter Property="Foreground" Value="WhiteSmoke"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="LunarDayTextStyle" TargetType="TextBlock" BasedOn="{StaticResource LunarTextStyle}">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsCurrentMonth}" Value="False">
+                    <Setter Property="Foreground" Value="{StaticResource OtherMonthBrush}"/>
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsCurrentMonth}" Value="True"/>
+                        <Condition Binding="{Binding IsWeekend}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Foreground" Value="{StaticResource WeekendBrush}"/>
+                </MultiDataTrigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsToday}" Value="True">
+                    <Setter Property="Foreground" Value="{StaticResource TodayTextBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsReminderFlashDark, RelativeSource={RelativeSource AncestorType={x:Type local:CalendarView}}}" Value="True">
+                    <Setter Property="Foreground" Value="Gainsboro"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TodayBadgeStyle" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource HoverBrush}"/>
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True"/>
+                        <Condition Binding="{Binding IsReminderFlashDark, RelativeSource={RelativeSource AncestorType={x:Type local:CalendarView}}}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#586579"/>
+                </MultiDataTrigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="BorderThickness" Value="1"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsToday}" Value="True">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="{StaticResource SurfaceBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="28"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource BarBrush}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsReminderFlashDark, RelativeSource={RelativeSource AncestorType={x:Type local:CalendarView}}}" Value="True">
+                                <Setter Property="Background" Value="#373D48"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <UniformGrid Columns="7">
+                    <TextBlock Text="周一" Style="{StaticResource WeekHeaderTextStyle}"/>
+                    <TextBlock Text="周二" Style="{StaticResource WeekHeaderTextStyle}"/>
+                    <TextBlock Text="周三" Style="{StaticResource WeekHeaderTextStyle}"/>
+                    <TextBlock Text="周四" Style="{StaticResource WeekHeaderTextStyle}"/>
+                    <TextBlock Text="周五" Style="{StaticResource WeekHeaderTextStyle}"/>
+                    <TextBlock Text="周六" Tag="Weekend" Style="{StaticResource WeekHeaderTextStyle}"/>
+                    <TextBlock Text="周日" Tag="Weekend" Style="{StaticResource WeekHeaderTextStyle}"/>
+                </UniformGrid>
+            </Border>
+
+            <ItemsControl x:Name="DaysItems" Grid.Row="1">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <primitives:UniformGrid Columns="7" Rows="6"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource CalendarDayButtonStyle}"
+                                IsEnabled="{Binding IsSupportedDate}"
+                                Click="DayButton_Click"
+                                MouseDoubleClick="DayButton_MouseDoubleClick"
+                                ToolTip="{Binding TooltipText}">
+                            <Grid>
+                                <!-- 同一圆形容器同时包住阳历与农历，最小窗口下仍保持正圆。 -->
+                                <Border x:Name="DayCircle" Width="44" Height="44" CornerRadius="22"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Style="{StaticResource TodayBadgeStyle}">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SolarDay}" Style="{StaticResource SolarDayTextStyle}"/>
+                                        <TextBlock Text="{Binding LunarText}" Style="{StaticResource LunarDayTextStyle}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Polygon
+                                         Points="0,10 10,10 10,0"
+                                         Width="10" Height="10"
+                                         Stretch="Fill"
+                                         Fill="{StaticResource ScheduleIndicatorBrush}"
+                                         HorizontalAlignment="Right"
+                                         VerticalAlignment="Bottom"
+                                         Margin="0,0,3,3">
+                                    <Polygon.Style>
+                                        <Style TargetType="Polygon">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasSchedule}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Polygon.Style>
+                                </Polygon>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
+    </Border>
+</UserControl>

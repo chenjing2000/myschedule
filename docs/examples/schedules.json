@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "events": [
+    {
+      "id": "f73586c9-5707-4ab3-a804-315b51029b25",
+      "name": "月末整理",
+      "location": "办公室",
+      "calendar": "solar",
+      "startDate": { "year": 2026, "month": 10, "day": 31, "isLeapMonth": false },
+      "time": "09:00",
+      "recurrence": "monthly",
+      "reminderMinutes": 15,
+      "lastRemindedOccurrenceDate": null
+    },
+    {
+      "id": "aaeb5d1c-9a09-466a-82bd-d43f4e916887",
+      "name": "阴历月度事项",
+      "location": "",
+      "calendar": "lunar",
+      "startDate": { "year": 2026, "month": 9, "day": 17, "isLeapMonth": false },
+      "time": "18:30",
+      "recurrence": "monthly",
+      "reminderMinutes": 0,
+      "lastRemindedOccurrenceDate": "2026-10-26"
+    }
+  ]
+}
