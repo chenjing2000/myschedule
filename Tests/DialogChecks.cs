@@ -35,6 +35,7 @@ internal static class DialogChecks
                         var list = (ListBox)day.FindName("ScheduleListBox");
                         list.ItemsSource = new[] { new ScheduleItem { EventName = "去上课", Location = "一教201", EventTime = new TimeOnly(9, 29) } };
                         day.UpdateLayout();
+                        Require(Controls<Button>((DependencyObject)day.Content).Where(b => b.Style == day.FindResource("DayActionStyle")).All(b => b.ActualWidth == 60), "all day actions have 60 DIP integer width");
                         var texts = Texts((DependencyObject)day.Content).ToArray();
                         Require(texts.All(t => t.FontWeight == FontWeights.Normal && t.FontSize == 14), "day view text uses normal 14-point font");
                         Require(!texts.Any(t => t.Text == "今日日程"), "redundant day heading removed");
@@ -81,6 +82,15 @@ internal static class DialogChecks
     private static void Require(bool valid, string message)
     {
         if (!valid) throw new Exception("FAIL: " + message);
+    }
+    private static IEnumerable<T> Controls<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i=0; i<VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child=VisualTreeHelper.GetChild(root,i);
+            if (child is T match) yield return match;
+            foreach (var nested in Controls<T>(child)) yield return nested;
+        }
     }
     private static IEnumerable<TextBlock> Texts(DependencyObject root)
     {

@@ -27,7 +27,7 @@ internal static class EventChecks
     {
         Id = Guid.NewGuid().ToString(), EventName = "测试事项\"换行\n地点", Location = "办公室\\A",
         Calendar = calendar, StartDate = new ScheduleDate { Year = year, Month = month, Day = day, IsLeapMonth = leap },
-        EventTime = new TimeOnly(9, 0), Recurrence = recurrence, RemindingMinutes = 15
+        EventTime = new TimeOnly(9, 0), Recurrence = recurrence, RepeatCount = recurrence == RepeatPeriod.None ? 1 : 999, RemindingMinutes = 15
     };
     private static void Check(bool condition, string name)
     {
@@ -47,7 +47,7 @@ internal static class EventChecks
     {
         string empty = ScheduleJson.Serialize([]);
         using var document = JsonDocument.Parse(empty);
-        Check(document.RootElement.GetProperty("schemaVersion").GetInt32() == 1 &&
+        Check(document.RootElement.GetProperty("schemaVersion").GetInt32() == 2 &&
             document.RootElement.GetProperty("events").GetArrayLength() == 0, "standard versioned empty JSON");
         var item = Event(2026, 9, 17, RepeatPeriod.Monthly, CalendarKind.Lunar);
         item.LastRemindedOccurrenceDate = DateOnly.FromDateTime(item.StartDate.ToSolar(item.Calendar));
@@ -58,12 +58,12 @@ internal static class EventChecks
             parsed.LastRemindedOccurrenceDate == item.LastRemindedOccurrenceDate && parsed.Id == item.Id, "JSON full round trip including escaping and reminder date");
         Check(text.Contains("\"time\": \"09:00\"") && text.Contains("\"calendar\": \"lunar\""), "JSON uses HH:mm and named calendar");
         Rejected(() => ScheduleJson.Parse("[]"), "old array format rejected");
-        Rejected(() => ScheduleJson.Parse(empty.Replace(": 1", ": 2")), "unknown schema rejected");
-        Rejected(() => ScheduleJson.Parse(empty.Replace(": 1", ": null")), "null schema version rejected clearly");
+        Rejected(() => ScheduleJson.Parse(empty.Replace(": 2", ": 3")), "unknown schema rejected");
+        Rejected(() => ScheduleJson.Parse(empty.Replace(": 2", ": null")), "null schema version rejected clearly");
         Rejected(() => ScheduleJson.Parse("{"), "malformed JSON rejected");
-        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":1,\"events\":null}"), "null event list rejected");
-        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":1,\"events\":[null]}"), "null event rejected");
-        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":1,\"events\":[{}]}"), "missing required fields rejected");
+        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":2,\"events\":null}"), "null event list rejected");
+        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":2,\"events\":[null]}"), "null event rejected");
+        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":2,\"events\":[{}]}"), "missing required fields rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"monthly\"", "\"sometimes\"")), "unknown recurrence rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"monthly\"", "3")), "numeric recurrence rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"09:00\"", "\"9:00\"")), "noncanonical time rejected");
@@ -95,6 +95,7 @@ internal static class EventChecks
             Check(!ScheduleOccurrence.IsOnDate(item, new DateTime(2025, 10, 26)), $"{repeat} does not occur before start");
         }
         item.Recurrence = RepeatPeriod.Daily;
+        item.RepeatCount = 999;
         Check(ScheduleOccurrence.IsOnDate(item, new DateTime(2026, 10, 27)), "daily repeats next day");
         item.Recurrence = RepeatPeriod.Weekly;
         Check(ScheduleOccurrence.IsOnDate(item, new DateTime(2026, 11, 2)) &&
@@ -220,7 +221,7 @@ internal static class EventChecks
         var window = Editor(new DateTime(2026, 10, 26), null);
         try
         {
-            Check(window.Width == 400 && window.Height == 370 && window.FontSize == 14, "editor default width matches main window");
+            Check(window.Width == 400 && window.Height == 336 && window.FontSize == 14, "editor default width matches main window");
             Check((string)Find<Button>(window, "CalendarTypeButton").Content == "阳历", "new event defaults solar");
             Check(Find<ComboBox>(window, "RecurrenceCombo").Items.Count == 5, "five recurrence options");
             Check(Find<ComboBox>(window, "YearCombo").SelectedValue is 2026, "solar year selected");
@@ -306,11 +307,11 @@ internal static class EventChecks
     private static void Render(ScheduleEditWindow window, string name)
     {
         var root = (FrameworkElement)window.Content;
-        root.Measure(new Size(364, 331)); root.Arrange(new Rect(0, 0, 364, 331)); root.UpdateLayout();
-        Check(Find<ComboBox>(window, "DayCombo").TransformToAncestor(root).Transform(new Point(54, 30)).X <= root.ActualWidth, name + " date controls fit width");
-        var bitmap = new RenderTargetBitmap(364, 331, 96, 96, PixelFormats.Pbgra32);
+        root.Measure(new Size(364, 297)); root.Arrange(new Rect(0, 0, 364, 297)); root.UpdateLayout();
+        Check(Find<ComboBox>(window, "DayCombo").TransformToAncestor(root).Transform(new Point(Find<ComboBox>(window, "DayCombo").ActualWidth, 30)).X <= root.ActualWidth, name + " date controls fit width");
+        var bitmap = new RenderTargetBitmap(364, 297, 96, 96, PixelFormats.Pbgra32);
         var background = new DrawingVisual();
-        using (var drawing = background.RenderOpen()) drawing.DrawRectangle(window.Background, null, new Rect(0, 0, 364, 331));
+        using (var drawing = background.RenderOpen()) drawing.DrawRectangle(window.Background, null, new Rect(0, 0, 364, 297));
         bitmap.Render(background);
         bitmap.Render(root);
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));

@@ -21,7 +21,8 @@ public partial class ScheduleEditWindow : Window
         _defaultDate = defaultDate.Date;
         _editing = existing;
         Title = existing is null ? "新增日程" : "编辑日程";
-        DataObject.AddPastingHandler(RemindMinutesTextBox, RemindMinutesTextBox_Pasting);
+        DataObject.AddPastingHandler(RemindMinutesTextBox, IntegerTextBox_Pasting);
+        DataObject.AddPastingHandler(RepeatCountTextBox, IntegerTextBox_Pasting);
         Loaded += ScheduleEditWindow_Loaded;
     }
 
@@ -35,7 +36,9 @@ public partial class ScheduleEditWindow : Window
     {
         _calendar = _editing?.Calendar ?? CalendarKind.Solar;
         _date = _editing?.StartDate ?? new ScheduleDate { Year = _defaultDate.Year, Month = _defaultDate.Month, Day = _defaultDate.Day };
-        RecurrenceCombo.SelectedValue = (_editing?.Recurrence ?? RepeatPeriod.None).ToString();
+        var recurrence = _editing?.Recurrence ?? RepeatPeriod.None;
+        RecurrenceCombo.SelectedValue = recurrence.ToString();
+        RepeatCountTextBox.Text = (_editing?.RepeatCount ?? ScheduleItem.DefaultRepeatCount(recurrence)).ToString();
         HourCombo.ItemsSource = Enumerable.Range(0, 24).Select(TwoDigits).ToList();
         MinuteCombo.ItemsSource = Enumerable.Range(0, 60).Select(TwoDigits).ToList();
         var time = _editing?.EventTime ?? TimeOnly.FromDateTime(DateTime.Now.AddMinutes(5));
@@ -45,6 +48,19 @@ public partial class ScheduleEditWindow : Window
         LocationTextBox.Text = _editing?.Location ?? "";
         RemindMinutesTextBox.Text = (_editing?.RemindingMinutes ?? 0).ToString();
         RefreshDateOptions();
+    }
+
+    private void EditorGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double width = Math.Max(0, Math.Floor(EditorGrid.ColumnDefinitions[1].ActualWidth));
+        EventNameTextBox.Width = LocationTextBox.Width = width;
+    }
+
+    private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (RepeatCountTextBox is null || !Enum.TryParse<RepeatPeriod>(RecurrenceCombo.SelectedValue as string, out var period)) return;
+        RepeatCountTextBox.IsEnabled = period != RepeatPeriod.None;
+        RepeatCountTextBox.Text = ScheduleItem.DefaultRepeatCount(period).ToString();
     }
 
     private void CalendarTypeButton_Click(object sender, RoutedEventArgs e)
@@ -120,14 +136,15 @@ public partial class ScheduleEditWindow : Window
         e.Handled = true;
     }
 
-    private void RemindMinutesTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
+    private void IntegerTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
         e.Handled = string.IsNullOrEmpty(e.Text) || !e.Text.All(c => c is >= '0' and <= '9');
 
-    private void RemindMinutesTextBox_Pasting(object sender, DataObjectPastingEventArgs e)
+    private void IntegerTextBox_Pasting(object sender, DataObjectPastingEventArgs e)
     {
         string pasted = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string ?? "";
-        int length = RemindMinutesTextBox.Text.Length - RemindMinutesTextBox.SelectionLength + pasted.Length;
-        if (pasted.Length == 0 || !pasted.All(c => c is >= '0' and <= '9') || length > 2) e.CancelCommand();
+        var box = (TextBox)sender;
+        int length = box.Text.Length - box.SelectionLength + pasted.Length;
+        if (pasted.Length == 0 || !pasted.All(c => c is >= '0' and <= '9') || length > box.MaxLength) e.CancelCommand();
     }
 
     private bool TryBuildResult(out ScheduleItem result, out string error)
@@ -140,8 +157,14 @@ public partial class ScheduleEditWindow : Window
         { error = "请选择周期。"; return false; }
         if (!int.TryParse(RemindMinutesTextBox.Text.Trim(), out int reminder) || reminder is < 0 or > 99)
         { error = "提前提醒分钟数必须是0～99的整数。"; return false; }
+        int repeatCount = 1;
+        if (recurrence != RepeatPeriod.None && (RepeatCountTextBox.Text.Length is < 1 or > 3 ||
+            !RepeatCountTextBox.Text.All(c => c is >= '0' and <= '9') ||
+            !int.TryParse(RepeatCountTextBox.Text, out repeatCount) || repeatCount is < 1 or > 999))
+        { error = "重复次数必须是1～999的整数。"; return false; }
         result = new ScheduleItem
         {
+            RepeatCount = repeatCount,
             Id = _editing?.Id ?? Guid.NewGuid().ToString(), Calendar = _calendar, StartDate = _date,
             Recurrence = recurrence, EventTime = new TimeOnly(int.Parse(hour), int.Parse(minute)),
             EventName = EventNameTextBox.Text.Trim(), Location = LocationTextBox.Text.Trim(), RemindingMinutes = reminder

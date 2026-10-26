@@ -10,7 +10,7 @@
     <Window.Resources>
         <Style x:Key="DayActionStyle" TargetType="Button" BasedOn="{StaticResource DialogActionButtonStyle}">
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Width" Value="88"/>
+            <Setter Property="Width" Value="60"/>
             <Setter Property="Height" Value="32"/>
         </Style>
     </Window.Resources>

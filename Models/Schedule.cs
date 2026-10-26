@@ -32,6 +32,14 @@ public sealed class ScheduleItem
     [JsonRequired] public ScheduleDate StartDate { get; set; } = new();
     [JsonRequired, JsonPropertyName("time")] public TimeOnly? EventTime { get; set; }
     [JsonRequired] public RepeatPeriod Recurrence { get; set; }
+    [JsonRequired] public int RepeatCount { get; set; } = 1;
+
+    public static int DefaultRepeatCount(RepeatPeriod period) => period switch
+    {
+        RepeatPeriod.None => 1,
+        RepeatPeriod.Yearly => 100,
+        _ => 2
+    };
     [JsonRequired, JsonPropertyName("reminderMinutes")] public int RemindingMinutes { get; set; } = 0;
     [JsonRequired] public DateOnly? LastRemindedOccurrenceDate { get; set; }
 

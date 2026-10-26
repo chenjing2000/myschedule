@@ -109,29 +109,52 @@ internal static class ScheduleOccurrence
     {
         date = date.Date;
         DateTime start = item.StartDate.ToSolar(item.Calendar);
-        if (date < start) return false;
+        if (date < start || item.RepeatCount < 1) return false;
+        int days = (date - start).Days;
         switch (item.Recurrence)
         {
             case RepeatPeriod.None: return date == start;
-            case RepeatPeriod.Daily: return true;
-            case RepeatPeriod.Weekly: return (date - start).Days % 7 == 0;
+            case RepeatPeriod.Daily: return days < item.RepeatCount;
+            case RepeatPeriod.Weekly: return days % 7 == 0 && days / 7 < item.RepeatCount;
         }
+        int count = 0;
         if (item.Calendar == CalendarKind.Solar)
-            return date.Day == item.StartDate.Day &&
-                (item.Recurrence == RepeatPeriod.Monthly || date.Month == item.StartDate.Month);
+        {
+            if (date.Day != item.StartDate.Day ||
+                item.Recurrence == RepeatPeriod.Yearly && date.Month != item.StartDate.Month) return false;
+            int target = date.Year * 12 + date.Month - 1;
+            int step = item.Recurrence == RepeatPeriod.Monthly ? 1 : 12;
+            for (int month = start.Year * 12 + start.Month - 1; month <= target; month += step)
+                if (DateTime.DaysInMonth(month / 12, month % 12 + 1) >= item.StartDate.Day && ++count > item.RepeatCount)
+                    return false;
+            return true;
+        }
 
-        // Chinese lunar years can span two Gregorian years; convert the target day itself.
         Lunar.LunarDate lunar;
         try { lunar = Lunar.FromSolar(date); }
         catch (ArgumentOutOfRangeException) { return false; }
-        return lunar.Day == item.StartDate.Day &&
-            (item.Recurrence == RepeatPeriod.Monthly ||
-             lunar.Month == item.StartDate.Month && lunar.IsLeap == item.StartDate.IsLeapMonth);
+        if (lunar.Day != item.StartDate.Day || item.Recurrence == RepeatPeriod.Yearly &&
+            (lunar.Month != item.StartDate.Month || lunar.IsLeap != item.StartDate.IsLeapMonth)) return false;
+        int firstMonth = item.StartDate.Year * 24 + item.StartDate.Month * 2 + (item.StartDate.IsLeapMonth ? 1 : 0);
+        int lastMonth = lunar.Year * 24 + lunar.Month * 2 + (lunar.IsLeap ? 1 : 0);
+        // Count real lunar months in order, including the leap month immediately after its ordinary month.
+        for (int year = item.StartDate.Year; year <= lunar.Year; year++)
+        for (int month = 1; month <= 12; month++)
+        for (int leap = 0; leap <= (Lunar.LeapMonthOf(year) == month ? 1 : 0); leap++)
+        {
+            int ordinal = year * 24 + month * 2 + leap;
+            if (ordinal < firstMonth || ordinal > lastMonth || item.Recurrence == RepeatPeriod.Yearly &&
+                (month != item.StartDate.Month || (leap == 1) != item.StartDate.IsLeapMonth)) continue;
+            int length = leap == 1 ? Lunar.DaysInLeapMonth(year, month) : Lunar.DaysInLunarMonth(year, month);
+            if (length >= item.StartDate.Day && ++count > item.RepeatCount) return false;
+        }
+        return true;
     }
 
     public static bool SameReminderIdentity(ScheduleItem a, ScheduleItem b) =>
         a.Calendar == b.Calendar && a.StartDate == b.StartDate && a.Recurrence == b.Recurrence &&
-        a.EventTime == b.EventTime && a.RemindingMinutes == b.RemindingMinutes;
+        a.EventTime == b.EventTime && a.RemindingMinutes == b.RemindingMinutes &&
+        (a.LastRemindedOccurrenceDate is not DateOnly previous || IsOnDate(b, previous.ToDateTime(TimeOnly.MinValue)));
 }
 
 internal static class ScheduleJson
@@ -162,8 +185,8 @@ internal static class ScheduleJson
         if (parsed.RootElement.ValueKind != JsonValueKind.Object ||
             !parsed.RootElement.TryGetProperty("schemaVersion", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out int number) || number != 1)
-            throw new FormatException("仅支持schemaVersion为1的新日程JSON格式；旧格式不兼容，文件未修改。");
+            !version.TryGetInt32(out int number) || number != 2)
+            throw new FormatException("仅支持schemaVersion为2的新日程JSON格式；旧格式不兼容，文件未修改。");
         var document = JsonSerializer.Deserialize<Document>(text, Options)
             ?? throw new FormatException("日程文件不能为空。");
         ValidateAll(document.Events);
@@ -174,7 +197,7 @@ internal static class ScheduleJson
     {
         var list = items.ToList();
         ValidateAll(list);
-        return JsonSerializer.Serialize(new Document { SchemaVersion = 1, Events = list }, Options) + Environment.NewLine;
+        return JsonSerializer.Serialize(new Document { SchemaVersion = 2, Events = list }, Options) + Environment.NewLine;
     }
 
     private static void ValidateAll(List<ScheduleItem>? items)
@@ -195,6 +218,8 @@ internal static class ScheduleJson
         if (string.IsNullOrWhiteSpace(item.EventName)) throw new FormatException("事件名称不能为空。");
         if (item.Location is null) throw new FormatException("地点必须是字符串。");
         if (!Enum.IsDefined(item.Calendar) || !Enum.IsDefined(item.Recurrence)) throw new FormatException("历法或周期无效。");
+        if (item.RepeatCount is < 1 or > 999 || item.Recurrence == RepeatPeriod.None && item.RepeatCount != 1)
+            throw new FormatException("重复次数必须是1～999的整数，非周期日程必须为1。");
         if (item.StartDate is null) throw new FormatException("起始日期不能为空。");
         _ = item.StartDate.ToSolar(item.Calendar);
         if (!item.HasTime || item.EventTime!.Value.Second != 0 || item.EventTime.Value.Ticks % TimeSpan.TicksPerMinute != 0)

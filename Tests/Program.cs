@@ -13,6 +13,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--upgrade-v1") return DataUpgrade.UpgradeFile(args[1]);
         if (args.Contains("--instance-modal-host"))
         {
             var instanceApp = new OneSchedule.App();
@@ -35,6 +36,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            RepeatChecks.Run();
             ComboChecks.Run();
             InteractionChecks.Run();
             EventChecks.Run();

@@ -95,7 +95,7 @@ internal static class InteractionChecks
             Require(reminder.CaretIndex == 2 && reminder.SelectionLength == 0, "click places reminder caret after digits without selecting");
             foreach (double width in new[] { 384d, 364d, 504d })
             {
-                Layout((FrameworkElement)editor.Content, width, 331);
+                Layout((FrameworkElement)editor.Content, width, 297);
                 CheckEditorLayout(editor);
             }
             Find<Button>(editor, "CalendarTypeButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -107,7 +107,7 @@ internal static class InteractionChecks
                     Find<ComboBox>(editor, "MonthCombo").SelectedItem = month;
                     var days = Find<ComboBox>(editor, "DayCombo");
                     days.SelectedIndex = days.Items.Count - 1;
-                    Layout((FrameworkElement)editor.Content, 364, 331);
+                    Layout((FrameworkElement)editor.Content, 364, 297);
                     CheckEditorLayout(editor);
                     foreach (var name in new[] { "YearCombo", "MonthCombo", "DayCombo", "HourCombo", "MinuteCombo" })
                     {
@@ -122,7 +122,7 @@ internal static class InteractionChecks
                 }
             }
             reminder.Text = "0";
-            Layout((FrameworkElement)editor.Content, 364, 331);
+            Layout((FrameworkElement)editor.Content, 364, 297);
             Render((FrameworkElement)editor.Content, "editor-compact-lunar");
         }
         finally { editor.Close(); }
@@ -131,7 +131,7 @@ internal static class InteractionChecks
         try
         {
             Require(Find<TextBox>(existing, "RemindMinutesTextBox").Text == "37", "editing retains stored reminder value");
-            Layout((FrameworkElement)existing.Content, 364, 331);
+            Layout((FrameworkElement)existing.Content, 364, 297);
             CheckEditorLayout(existing);
         }
         finally { existing.Close(); }
@@ -185,7 +185,7 @@ internal static class InteractionChecks
             Require(service.Items.Count == 2 && service.Items.Any(i => i.EventName == "added"), "new editor saved item reaches day list persistence");
             string originalId = service.Items.Single(i => i.EventName == "existing").Id;
             day.UpdateLayout();
-            row = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
+            row = (ListBoxItem)list.ItemContainerGenerator.ContainerFromItem(list.Items.Cast<ScheduleItem>().Single(i => i.Id == originalId));
             saveName = "updated";
             list.RaiseEvent(MouseEvent(Control.MouseDoubleClickEvent, row));
             Require(service.Items.Count == 2 && service.Items.Single(i => i.Id == originalId).EventName == "updated",
@@ -202,7 +202,23 @@ internal static class InteractionChecks
         var actions = Children<Button>(root).Where(b => b.Style == editor.FindResource("ActionStyle")).Select(b => b.Content?.ToString()).ToArray();
         Require(actions.SequenceEqual(new[] { "取消", "保存" }), "new/edit editor exposes only Cancel and Save actions");
         var combos = new[] { "RecurrenceCombo", "MonthCombo", "DayCombo", "HourCombo", "MinuteCombo" }.Select(n => Find<ComboBox>(editor, n)).ToArray();
-        Require(combos.Select(c => c.ActualWidth).Distinct().Count() == 1, "all non-year dropdown widths match");
+        Require(combos.All(c => c.ActualWidth == 42), "all non-year dropdown widths are 42 DIP");
+        Require(Find<TextBox>(editor, "RepeatCountTextBox").ActualWidth == 42 && Find<TextBox>(editor, "RemindMinutesTextBox").ActualWidth == 42,
+            "numeric inputs share 42 DIP width");
+        Require(Find<Button>(editor, "CalendarTypeButton").ActualWidth == 48 &&
+            Children<Button>(root).Where(b => b.Style == editor.FindResource("ActionStyle")).All(b => b.ActualWidth == 60), "compact action widths");
+        Require(Children<FrameworkElement>(root).Where(e => e is Button or ComboBox or TextBox).All(e => Math.Abs(e.ActualWidth - Math.Round(e.ActualWidth)) < .001),
+            "editor controls have integer DIP widths");
+        var unitLabels = Children<TextBlock>(root).Where(t => new[] { "年", "月", "日", "时", "分" }.Contains(t.Text));
+        Require(unitLabels.All(t => t.Width == 22), "date and time unit slots share 22 DIP width");
+        Require(Children<TextBlock>(root).Where(t => t.Text is "周期" or "重复").All(t => t.Width == 36), "period and repeat label slots match");
+        if (Find<TextBlock>(editor, "ValidationText").Visibility == Visibility.Collapsed)
+        {
+            var cancel = Children<Button>(root).Single(b => b.Content?.ToString() == "取消");
+            var reminder = Find<TextBox>(editor, "RemindMinutesTextBox");
+            double gap = cancel.TransformToAncestor(root).Transform(new Point()).Y - reminder.TransformToAncestor(root).Transform(new Point(0, reminder.ActualHeight)).Y;
+            Require(Math.Abs(gap - 16) <= 1, "compact reminder-to-footer gap is 16 DIP");
+        }
         foreach (var element in Children<FrameworkElement>(root).Where(e => e is ComboBox or TextBox ||
                      e is TextBlock t && new[] { "年", "月", "日", "时", "分" }.Contains(t.Text)))
         {
