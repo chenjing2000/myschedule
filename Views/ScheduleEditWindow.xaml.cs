@@ -113,6 +113,7 @@ public partial class ScheduleEditWindow : Window
             int day = Math.Min(_date.Day, maxDay);
             DayCombo.SelectedValue = day;
             _date = new ScheduleDate { Year = _date.Year, Month = selected.Value, Day = day, IsLeapMonth = selected.IsLeap };
+            WeekdayText.Text = _date.ToSolar(_calendar).ToString("dddd", CultureInfo.GetCultureInfo("zh-CN"));
         }
         finally { _updating = false; }
     }

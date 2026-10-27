@@ -66,9 +66,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Button Grid.Column="0" Content="新增" Style="{StaticResource DayActionStyle}" Click="AddButton_Click"/>
-            <Button x:Name="DeleteButton" Grid.Column="1" Content="删除" Style="{StaticResource DayActionStyle}" Click="DeleteButton_Click"/>
-            <Button Grid.Column="2" Content="完成" Style="{StaticResource DayActionStyle}" Click="DoneButton_Click"/>
+            <Button Grid.Column="1" Content="新增" Style="{StaticResource DayActionStyle}" Click="AddButton_Click"/>
+            <Button x:Name="DeleteButton" Grid.Column="2" Content="删除" Style="{StaticResource DayActionStyle}" Click="DeleteButton_Click"/>
         </Grid>
     </Grid>
 </Window>

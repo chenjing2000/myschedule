@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Globalization;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
@@ -31,8 +32,9 @@ public partial class DayEventsWindow : Window
 
     private static string FormatDateHeader(DateTime date)
     {
-        try { return $"{date:yyyy年M月d日}（{Lunar.GetDateText(date)}）"; }
-        catch { return $"{date:yyyy年M月d日}"; }
+        string weekday = date.ToString("dddd", CultureInfo.GetCultureInfo("zh-CN"));
+        try { return $"{date:yyyy年M月d日}（{Lunar.GetDateText(date)}） {weekday}"; }
+        catch { return $"{date:yyyy年M月d日} {weekday}"; }
     }
 
     private void RefreshList(int preferredIndex = 0)
@@ -95,6 +97,4 @@ public partial class DayEventsWindow : Window
 
     private void ShowSaveError() =>
         MessageBox.Show(this, "保存日程失败：" + _scheduleService.LastError, "MySchedule", MessageBoxButton.OK, MessageBoxImage.Error);
-
-    private void DoneButton_Click(object sender, RoutedEventArgs e) => Close();
 }

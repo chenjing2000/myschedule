@@ -61,6 +61,7 @@
             <TextBlock Text="月" Width="22" TextAlignment="Center" VerticalAlignment="Center"/>
             <ComboBox x:Name="DayCombo" SelectedValuePath="Value" DisplayMemberPath="Text" SelectionChanged="DatePart_SelectionChanged"/>
             <TextBlock Text="日" Width="22" TextAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock x:Name="WeekdayText" Margin="6,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <TextBlock Grid.Row="2" Text="时间" VerticalAlignment="Center" Margin="0,0,6,8"/>
         <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">

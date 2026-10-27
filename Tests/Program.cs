@@ -36,6 +36,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            WeekdayChecks.Run();
             ScrollBarChecks.Run();
             DigitMarkerChecks.Run();
             NumberInputChecks.Run();
