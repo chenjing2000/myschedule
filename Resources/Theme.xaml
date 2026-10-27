@@ -298,7 +298,7 @@
     </Style>
 
     <Style x:Key="TrayMenuItemStyle" TargetType="MenuItem">
-        <Setter Property="Padding" Value="12,5"/>
+        <Setter Property="Padding" Value="4,5"/>
         <Setter Property="MinHeight" Value="32"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -324,14 +324,15 @@
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="FontWeight" Value="Normal"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="MinWidth" Value="128"/>
+        <Setter Property="Width" Value="64"/>
+        <Setter Property="MinWidth" Value="0"/>
         <Setter Property="HasDropShadow" Value="False"/>
         <Setter Property="ItemContainerStyle" Value="{StaticResource TrayMenuItemStyle}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
                     <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource GridLineBrush}"
-                            BorderThickness="1" CornerRadius="8" Padding="4" Margin="8">
+                            BorderThickness="1" CornerRadius="8" Padding="2" Margin="8">
                         <Border.Effect>
                             <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="2" Opacity="0.16"/>
                         </Border.Effect>
