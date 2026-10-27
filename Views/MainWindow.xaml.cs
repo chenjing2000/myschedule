@@ -25,11 +25,27 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SourceInitialized += MainWindow_SourceInitialized;
         Loaded += MainWindow_Loaded;
         Closed += MainWindow_Closed;
         PreviewMouseDown += MainWindow_PreviewMouseDown;
         _dateTimer.Tick += DateTimer_Tick;
     }
+
+    private void MainWindow_SourceInitialized(object? sender, EventArgs e)
+    {
+        const int windowStyle = -16;
+        const int maximizeBox = 0x00010000;
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        // Keep the resize border and minimize button while disabling native maximization.
+        SetWindowLong(handle, windowStyle, GetWindowLong(handle, windowStyle) & ~maximizeBox);
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static extern int GetWindowLong(IntPtr window, int index);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongW")]
+    private static extern int SetWindowLong(IntPtr window, int index, int value);
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {

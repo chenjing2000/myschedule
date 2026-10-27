@@ -14,13 +14,30 @@ internal static class InteractionChecks
     public static void Run()
     {
         var failures = new List<Exception>();
-        foreach (var check in new Action[] { Calendar, Editor, DayList })
+        foreach (var check in new Action[] { MainWindowChrome, Calendar, Editor, DayList })
         {
             try { check(); Console.WriteLine("PASS: interaction " + check.Method.Name); }
             catch (Exception ex) { failures.Add(ex); Console.WriteLine("FAIL: interaction " + check.Method.Name + ": " + ex.Message); }
         }
         if (failures.Count > 0) throw new AggregateException(failures);
     }
+
+    private static void MainWindowChrome()
+    {
+        var window = new MainWindow();
+        try
+        {
+            var handle = new System.Windows.Interop.WindowInteropHelper(window).EnsureHandle();
+            int style = GetWindowLong(handle, -16);
+            Require((style & 0x00010000) == 0, "main window maximize button is disabled");
+            Require((style & 0x00020000) != 0, "main window minimize button remains enabled");
+            Require((style & 0x00040000) != 0, "main window retains resize border");
+        }
+        finally { window.Close(); }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static extern int GetWindowLong(IntPtr window, int index);
 
     private static void Calendar()
     {
