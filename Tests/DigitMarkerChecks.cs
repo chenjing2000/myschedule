@@ -42,7 +42,7 @@ internal static class DigitMarkerChecks
         finally { editor.Close(); }
         var view=new CalendarView();
         var date=new DateTime(2026,10,26);
-        string[] colors=["#C3ACE4","#97C7E3","#A8D5B0","#EBCB91","#E8A8A5"];
+        string[] colors=["#A477E8","#39A9EB","#41C984","#F5AC3D","#F45D75"];
         var periods=new[] { RepeatPeriod.None, RepeatPeriod.Daily, RepeatPeriod.Weekly, RepeatPeriod.Monthly, RepeatPeriod.Yearly };
         for(int i=0;i<periods.Length;i++)
         {
