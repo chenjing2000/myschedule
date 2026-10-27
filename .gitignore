@@ -8,3 +8,7 @@ dist/
 
 # User schedules, backups, and temporary save files
 data/
+
+# Local application settings
+OneSchedule.settings.json
+OneSchedule.settings.json.*.tmp

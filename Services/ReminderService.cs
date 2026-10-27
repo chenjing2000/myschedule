@@ -45,12 +45,12 @@ public sealed class ReminderService : IDisposable
     {
         if (!_scheduleService.CanSave || _scheduleService.Items.Count == 0) return;
         var now = DateTime.Now;
-        var fire = FindDue(_scheduleService.Items, now, out DateOnly occurrenceDate);
+        var fire = FindDue(_scheduleService.Items.Where(_scheduleService.CanSaveItem).ToList(), now, out DateOnly occurrenceDate);
         if (fire is null) return;
 
         var previous = fire.LastRemindedOccurrenceDate;
         fire.LastRemindedOccurrenceDate = occurrenceDate;
-        if (!_scheduleService.Save())
+        if (!_scheduleService.Save(fire))
         {
             fire.LastRemindedOccurrenceDate = previous;
             _onError?.Invoke("保存提醒记录失败：" + _scheduleService.LastError);
@@ -66,7 +66,13 @@ public sealed class ReminderService : IDisposable
         _flashDark = false;
         _setCalendarFlash(false);
         _alarm.Start();
-        if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
+        if (Application.Current is App app && app.MainWindow == _window) app.RestoreMainWindow();
+        else
+        {
+            _window.ShowInTaskbar = true;
+            _window.Show();
+            if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
+        }
         _window.Topmost = true;
         _window.Activate();
         _flashTimer.Start();

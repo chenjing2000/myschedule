@@ -55,6 +55,7 @@
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="TodayButton" Content="今天" Style="{StaticResource CompactButtonStyle}" Click="TodayButton_Click" ToolTip="回到今天"/>
                     <Button x:Name="RefreshButton" Content="↻" FontSize="19" Style="{StaticResource CompactButtonStyle}" Click="RefreshButton_Click" ToolTip="刷新日程" AutomationProperties.Name="刷新日程"/>
+                    <Button x:Name="SettingsButton" Content="⚙" FontFamily="Segoe UI Symbol" FontSize="19" Style="{StaticResource CompactButtonStyle}" Click="SettingsButton_Click" ToolTip="设置" AutomationProperties.Name="设置"/>
                 </StackPanel>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock x:Name="TodaySolarText" FontSize="17"/>

@@ -3,6 +3,11 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WPF owns DPI behavior through app.manifest; WinForms is used only for the tray. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+    <!-- WPF owns DPI initialization; NotifyIcon does not use WinForms application startup. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
     <UseAppHost>false</UseAppHost>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -16,6 +21,9 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>CalendarChecks</_Parameter1>
     </AssemblyAttribute>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <Resource Include="icon\whale.ico" />
     <Compile Remove="Tests\**\*.cs" />
     <Page Remove="Tests\**\*.xaml" />
   </ItemGroup>

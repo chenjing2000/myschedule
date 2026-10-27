@@ -49,6 +49,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        if (_reminderService is not null) return;
         if (!_scheduleService.Reload()) ShowStatus("读取日程失败：" + _scheduleService.LastError);
         UpdateToday();
         NavigateTo(_displayMonth.Year, _displayMonth.Month);
@@ -79,13 +80,15 @@ public partial class MainWindow : Window
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_scheduleService.Reload())
-        {
-            ShowStatus("读取日程失败：" + _scheduleService.LastError);
-            return;
-        }
-        StatusBar.Visibility = Visibility.Collapsed;
+        bool success = _scheduleService.Reload();
         RefreshView();
+        if (success) StatusBar.Visibility = Visibility.Collapsed;
+        else ShowStatus("部分日程读取失败：" + _scheduleService.LastError);
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (Application.Current is App app) SettingsWindow.ShowSettings(this, app.Settings);
     }
 
     private void Calendar_DayInvoked(object? sender, CalendarDayEventArgs e)

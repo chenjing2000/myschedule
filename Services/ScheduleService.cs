@@ -9,31 +9,115 @@ namespace OneSchedule;
 
 public sealed class ScheduleService
 {
-    private readonly string _filePath;
+    private sealed class Source(string path)
+    {
+        public string Path { get; } = path;
+        public List<ScheduleItem> Items { get; set; } = [];
+        public string? LoadedText { get; set; }
+        public bool CanSave { get; set; }
+    }
+
+    private readonly string _path;
+    private readonly bool _directoryMode;
+    private List<Source> _sources = [];
     private List<ScheduleItem> _items = [];
-    private string? _loadedText;
+    private readonly Dictionary<ScheduleItem, Source> _owners = [];
+    private HashSet<string> _conflicts = [];
 
-    public ScheduleService(string? filePath = null) =>
-        _filePath = filePath ?? Path.Combine(AppContext.BaseDirectory, "data", "MySchedule.json");
+    public ScheduleService(string? filePath = null)
+    {
+        _directoryMode = filePath is null;
+        _path = filePath ?? Path.Combine(AppContext.BaseDirectory, "data");
+    }
 
+    private ScheduleService(string directory, bool directoryMode)
+    {
+        _path = directory;
+        _directoryMode = directoryMode;
+    }
+
+    public static ScheduleService ForDirectory(string directory) => new(directory, true);
     public IReadOnlyList<ScheduleItem> Items => _items;
     public string LastError { get; private set; } = "";
-    public bool CanSave { get; private set; }
+    public bool CanSave => _sources.Any(source => source.CanSave);
+    public bool CanSaveItem(ScheduleItem item) => _owners.TryGetValue(item, out var source) && source.CanSave;
 
     public bool Reload()
     {
-        CanSave = false;
+        foreach (var source in _sources) source.CanSave = false;
         try
         {
-            string? text = File.Exists(_filePath) ? File.ReadAllText(_filePath) : null;
-            var loaded = text is null ? [] : ScheduleJson.Parse(text);
-            _items = loaded;
-            _loadedText = text;
-            CanSave = true;
-            LastError = "";
-            return true;
+            if (!_directoryMode)
+            {
+                var source = ReadSource(_path, allowMissing: true);
+                _sources = [source];
+                _conflicts.Clear();
+                RebuildItems();
+                LastError = "";
+                return true;
+            }
+
+            Directory.CreateDirectory(_path);
+            var paths = JsonPaths();
+            if (paths.Count == 0)
+            {
+                string file = Path.Combine(_path, "MySchedule.json");
+                try
+                {
+                    using var stream = new FileStream(file, FileMode.CreateNew, FileAccess.Write);
+                    using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+                    writer.Write(ScheduleJson.Serialize([]));
+                }
+                catch (IOException) when (File.Exists(file)) { }
+                paths = JsonPaths();
+            }
+
+            var errors = new List<string>();
+            var sources = new List<Source>();
+            foreach (string path in paths)
+            {
+                try { sources.Add(ReadSource(path)); }
+                catch (Exception ex)
+                {
+                    sources.Add(new Source(path));
+                    errors.Add(Path.GetFileName(path) + "：" + ex.Message);
+                }
+            }
+            _sources = sources;
+            _conflicts = sources.SelectMany(source => source.Items).GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var source in sources.Where(source => source.Items.Any(item => _conflicts.Contains(item.Id))))
+            {
+                source.CanSave = false;
+                errors.Add(Path.GetFileName(source.Path) + "：事件ID与其他文件冲突，请修复后刷新。");
+            }
+            RebuildItems();
+            LastError = string.Join(Environment.NewLine, errors);
+            return errors.Count == 0;
         }
         catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+
+    private List<string> JsonPaths() => Directory.EnumerateFiles(_path, "*", SearchOption.TopDirectoryOnly)
+        .Where(path => Path.GetExtension(path).Equals(".json", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase).ToList();
+
+    private static Source ReadSource(string path, bool allowMissing = false)
+    {
+        string? text = allowMissing && !File.Exists(path) ? null : File.ReadAllText(path);
+        return new Source(path) { LoadedText = text, Items = text is null ? [] : ScheduleJson.Parse(text), CanSave = true };
+    }
+
+    private void RebuildItems()
+    {
+        _items = [];
+        _owners.Clear();
+        foreach (var source in _sources)
+        foreach (var item in source.Items.Where(item => !_conflicts.Contains(item.Id)))
+        {
+            _items.Add(item);
+            _owners.Add(item, source);
+        }
     }
 
     public List<ScheduleItem> GetForDate(DateTime date) => _items
@@ -42,59 +126,77 @@ public sealed class ScheduleService
 
     public bool Add(ScheduleItem item)
     {
+        if (_sources.Count == 0) { LastError = "请先成功读取日程文件。"; return false; }
+        var source = _sources[0];
         item.Id = Guid.NewGuid().ToString();
-        return Commit(() => _items.Add(item), () => _items.Remove(item));
+        return Commit(source, () => source.Items.Add(item), () => source.Items.Remove(item));
     }
 
     public bool Update(ScheduleItem existing, ScheduleItem replacement)
     {
-        int index = _items.IndexOf(existing);
-        if (index < 0) return false;
+        if (!_owners.TryGetValue(existing, out var source)) return false;
+        int index = source.Items.IndexOf(existing);
         replacement.Id = existing.Id;
         replacement.LastRemindedOccurrenceDate = ScheduleOccurrence.SameReminderIdentity(existing, replacement)
             ? existing.LastRemindedOccurrenceDate : null;
-        return Commit(() => _items[index] = replacement, () => _items[index] = existing);
+        return Commit(source, () => source.Items[index] = replacement, () => source.Items[index] = existing);
     }
 
     public bool Delete(ScheduleItem item)
     {
-        int index = _items.IndexOf(item);
-        return index >= 0 && Commit(() => _items.RemoveAt(index), () => _items.Insert(index, item));
+        if (!_owners.TryGetValue(item, out var source)) return false;
+        int index = source.Items.IndexOf(item);
+        return Commit(source, () => source.Items.RemoveAt(index), () => source.Items.Insert(index, item));
     }
 
-    private bool Commit(Action apply, Action rollback)
+    private bool Commit(Source source, Action apply, Action rollback)
     {
         apply();
-        if (Save()) return true;
+        if (SaveSource(source)) { RebuildItems(); return true; }
         rollback();
+        RebuildItems();
         return false;
     }
 
+    public bool Save(ScheduleItem item)
+    {
+        if (_owners.TryGetValue(item, out var source)) return SaveSource(source);
+        LastError = "找不到事件所属文件，请刷新后重试。";
+        return false;
+    }
+
+    // Retained for explicit single-file tools; production changes save their owning file.
     public bool Save()
     {
-        string temp = _filePath + ".tmp";
+        if (_sources.Count != 1) { LastError = "请指定事件所属文件保存。"; return false; }
+        return SaveSource(_sources[0]);
+    }
+
+    private bool SaveSource(Source source)
+    {
+        string file = source.Path;
+        string temp = file + ".tmp";
         try
         {
-            if (!CanSave) throw new InvalidOperationException("日程尚未成功读取，禁止覆盖保存。请检查文件并刷新。");
-            // A failed load or an external edit must never become an empty/older overwrite.
-            string? current = File.Exists(_filePath) ? File.ReadAllText(_filePath) : null;
-            if (current != _loadedText)
+            if (!source.CanSave) throw new InvalidOperationException("文件尚未成功读取或存在冲突，禁止覆盖保存。请检查文件并刷新。");
+            string? current = File.Exists(file) ? File.ReadAllText(file) : null;
+            if (current != source.LoadedText)
             {
-                CanSave = false;
+                source.CanSave = false;
                 throw new IOException("日程文件已被其他程序修改，请刷新后重试。");
             }
-            string text = ScheduleJson.Serialize(_items);
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_filePath))!);
+            string text = ScheduleJson.Serialize(source.Items);
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(file))!);
             File.WriteAllText(temp, text, new UTF8Encoding(false));
-            if (File.Exists(_filePath)) File.Replace(temp, _filePath, _filePath + ".bak");
-            else File.Move(temp, _filePath);
-            _loadedText = text;
+            if (File.Exists(file)) File.Replace(temp, file, file + ".bak");
+            else File.Move(temp, file);
+            source.LoadedText = text;
             LastError = "";
             return true;
         }
         catch (Exception ex)
         {
-            LastError = ex.Message;
+            LastError = Path.GetFileName(file) + "：" + ex.Message;
             try { if (File.Exists(temp)) File.Delete(temp); }
             catch (Exception cleanupError) when (cleanupError is IOException or UnauthorizedAccessException) { }
             return false;

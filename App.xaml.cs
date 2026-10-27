@@ -1,8 +1,8 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Threading;
 
 namespace OneSchedule;
@@ -13,11 +13,15 @@ public partial class App : Application
     private EventWaitHandle? _activationEvent;
     private RegisteredWaitHandle? _activationWait;
     private bool _ownsMutex;
+    private TrayService? _tray;
+    internal SettingsService Settings { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         // Local namespace separates desktop sessions; SID separates users within a session.
         string identity = @"Local\OneSchedule." + WindowsIdentity.GetCurrent().User!.Value;
+        if (e.Args.Contains("--test-host"))
+            identity += ".Test." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(AppContext.BaseDirectory)));
         _activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, identity + ".Activate");
         _instanceMutex = new Mutex(false, identity + ".Instance");
         try { _ownsMutex = _instanceMutex.WaitOne(0); }
@@ -35,27 +39,52 @@ public partial class App : Application
         _activationWait = ThreadPool.RegisterWaitForSingleObject(_activationEvent, (_, _) =>
         {
             if (!Dispatcher.HasShutdownStarted)
-                Dispatcher.BeginInvoke(ActivateExistingWindow);
+                Dispatcher.BeginInvoke(RestoreMainWindow);
         }, null, Timeout.Infinite, false);
         base.OnStartup(e);
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        bool testHost = e.Args.Contains("--test-host");
+        Settings = testHost
+            ? new SettingsService(Path.Combine(AppContext.BaseDirectory, "OneSchedule.settings.json"), _ => { })
+            : new SettingsService();
+        bool settingsLoaded = Settings.Load();
         MainWindow = new MainWindow();
+        _tray = new TrayService(MainWindow, ExitFromTray);
+        if (e.Args.Contains("--startup"))
+        {
+            // Show once so Loaded completes normal initialization and starts reminder timers.
+            MainWindow.ShowInTaskbar = false;
+            MainWindow.Opacity = 0;
+            MainWindow.ShowActivated = false;
+            RoutedEventHandler hideAfterLoaded = null!;
+            hideAfterLoaded = (_, _) =>
+            {
+                MainWindow.Loaded -= hideAfterLoaded;
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+                {
+                    _tray?.Hide();
+                    MainWindow.Opacity = 1;
+                    MainWindow.ShowActivated = true;
+                }));
+            };
+            MainWindow.Loaded += hideAfterLoaded;
+        }
         MainWindow.Show();
+        if (!settingsLoaded)
+            MessageBox.Show(MainWindow, Settings.LastError, "OneSchedule 设置错误", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
-    private void ActivateExistingWindow()
+    internal void RestoreMainWindow() => _tray?.Restore();
+
+    private void ExitFromTray()
     {
-        if (MainWindow is not { } window) return;
-        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
-        // An owned modal disables its owner; bring the deepest visible dialog forward instead.
-        while (window.OwnedWindows.Cast<Window>().LastOrDefault(owned => owned.IsVisible) is { } owned)
-            window = owned;
-        if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
-        window.Activate();
-        SetForegroundWindow(new WindowInteropHelper(window).Handle);
+        _tray?.Dispose();
+        Shutdown();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _tray?.Dispose();
         _activationWait?.Unregister(null);
         _activationEvent?.Dispose();
         if (_ownsMutex) _instanceMutex?.ReleaseMutex();
@@ -66,10 +95,6 @@ public partial class App : Application
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool AllowSetForegroundWindow(int processId);
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetForegroundWindow(IntPtr window);
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {

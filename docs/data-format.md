@@ -50,3 +50,8 @@ dotnet run --project Tests/CalendarChecks.csproj -c Release -- --upgrade-v1 "dis
 ## 验证
 
 运行 `dotnet run --project Tests/CalendarChecks.csproj -c Release`，包含示例解析、JSON往返、无效数据与旧文件保护、周期及提醒测试。示例是说明材料，不随应用自动载入。
+
+
+## 多文件运行目录
+
+运行程序扫描EXE旁data目录第一层全部.json文件（忽略扩展名大小写），按文件名OrdinalIgnoreCase排序，不递归子目录，不读取.bak。没有JSON时才创建有效空白MySchedule.json。新增写入排序第一个文件；修改、删除和提醒记录写回源文件。损坏文件不覆盖，跨文件ID冲突明确报错、排除冲突事件并禁用冲突文件写入；其他文件继续读取和操作。设置保存在EXE旁OneSchedule.settings.json，不属于日程数据。

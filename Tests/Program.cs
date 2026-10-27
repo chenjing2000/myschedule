@@ -36,6 +36,9 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            SettingsChecks.Run();
+            TrayChecks.Run();
+            MultiFileChecks.Run();
             WeekdayChecks.Run();
             ScrollBarChecks.Run();
             DigitMarkerChecks.Run();
