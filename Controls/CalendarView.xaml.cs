@@ -28,6 +28,7 @@ public sealed class CalendarDayViewModel : INotifyPropertyChanged
     public required bool HasSchedule { get; init; }
     public bool IsSupportedDate => Date.Year >= Lunar.MinYear && Date.Year <= Lunar.MaxYear;
     public required IReadOnlyList<ScheduleItem> Schedules { get; init; }
+    public RepeatPeriod? IndicatorRecurrence => Schedules.FirstOrDefault()?.Recurrence;
     public string? TooltipText => Schedules.Count == 0
         ? null
         : string.Join(Environment.NewLine, Schedules.Select(FormatSchedule));

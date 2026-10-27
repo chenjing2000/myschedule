@@ -9,7 +9,6 @@
     <Color x:Key="TextSecondaryColor">#7A818C</Color>
     <Color x:Key="OtherMonthColor">#B7BDC7</Color>
     <Color x:Key="WeekendColor">#D85D5D</Color>
-    <Color x:Key="ScheduleIndicatorColor">#E5484D</Color>
     <Color x:Key="TodayTextColor">#FFFFFF</Color>
     <Color x:Key="HoverColor">#F2F7FF</Color>
     <Color x:Key="SelectionColor">#E8F1FF</Color>
@@ -22,7 +21,11 @@
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}"/>
     <SolidColorBrush x:Key="OtherMonthBrush" Color="{StaticResource OtherMonthColor}"/>
     <SolidColorBrush x:Key="WeekendBrush" Color="{StaticResource WeekendColor}"/>
-    <SolidColorBrush x:Key="ScheduleIndicatorBrush" Color="{StaticResource ScheduleIndicatorColor}"/>
+    <SolidColorBrush x:Key="NoneScheduleIndicatorBrush" Color="#C3ACE4"/>
+    <SolidColorBrush x:Key="DailyScheduleIndicatorBrush" Color="#97C7E3"/>
+    <SolidColorBrush x:Key="WeeklyScheduleIndicatorBrush" Color="#A8D5B0"/>
+    <SolidColorBrush x:Key="MonthlyScheduleIndicatorBrush" Color="#EBCB91"/>
+    <SolidColorBrush x:Key="YearlyScheduleIndicatorBrush" Color="#E8A8A5"/>
     <SolidColorBrush x:Key="TodayTextBrush" Color="{StaticResource TodayTextColor}"/>
     <SolidColorBrush x:Key="HoverBrush" Color="{StaticResource HoverColor}"/>
     <SolidColorBrush x:Key="SelectionBrush" Color="{StaticResource SelectionColor}"/>

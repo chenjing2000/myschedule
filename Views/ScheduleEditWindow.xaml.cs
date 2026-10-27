@@ -136,15 +136,23 @@ public partial class ScheduleEditWindow : Window
         e.Handled = true;
     }
 
+    private static bool IsAsciiDigits(string text) =>
+        text.Length > 0 && text.All(c => c is >= '0' and <= '9');
+
     private void IntegerTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) =>
-        e.Handled = string.IsNullOrEmpty(e.Text) || !e.Text.All(c => c is >= '0' and <= '9');
+        e.Handled = !IsAsciiDigits(e.Text);
+
+    private void IntegerTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Space) e.Handled = true;
+    }
 
     private void IntegerTextBox_Pasting(object sender, DataObjectPastingEventArgs e)
     {
         string pasted = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string ?? "";
         var box = (TextBox)sender;
         int length = box.Text.Length - box.SelectionLength + pasted.Length;
-        if (pasted.Length == 0 || !pasted.All(c => c is >= '0' and <= '9') || length > box.MaxLength) e.CancelCommand();
+        if (!IsAsciiDigits(pasted) || length > box.MaxLength) e.CancelCommand();
     }
 
     private bool TryBuildResult(out ScheduleItem result, out string error)
@@ -158,9 +166,7 @@ public partial class ScheduleEditWindow : Window
         if (!int.TryParse(RemindMinutesTextBox.Text.Trim(), out int reminder) || reminder is < 0 or > 99)
         { error = "提前提醒分钟数必须是0～99的整数。"; return false; }
         int repeatCount = 1;
-        if (recurrence != RepeatPeriod.None && (RepeatCountTextBox.Text.Length is < 1 or > 3 ||
-            !RepeatCountTextBox.Text.All(c => c is >= '0' and <= '9') ||
-            !int.TryParse(RepeatCountTextBox.Text, out repeatCount) || repeatCount is < 1 or > 999))
+        if (recurrence != RepeatPeriod.None && (!int.TryParse(RepeatCountTextBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out repeatCount) || repeatCount is < 1 or > 999))
         { error = "重复次数必须是1～999的整数。"; return false; }
         result = new ScheduleItem
         {

@@ -184,14 +184,26 @@
                                          Points="0,10 10,10 10,0"
                                          Width="10" Height="10"
                                          Stretch="Fill"
-                                         Fill="{StaticResource ScheduleIndicatorBrush}"
                                          HorizontalAlignment="Right"
                                          VerticalAlignment="Bottom"
                                          Margin="0,0,3,3">
                                     <Polygon.Style>
                                         <Style TargetType="Polygon">
+                                            <Setter Property="Fill" Value="{StaticResource NoneScheduleIndicatorBrush}"/>
                                             <Setter Property="Visibility" Value="Collapsed"/>
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IndicatorRecurrence}" Value="{x:Static local:RepeatPeriod.Daily}">
+                                                    <Setter Property="Fill" Value="{StaticResource DailyScheduleIndicatorBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IndicatorRecurrence}" Value="{x:Static local:RepeatPeriod.Weekly}">
+                                                    <Setter Property="Fill" Value="{StaticResource WeeklyScheduleIndicatorBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IndicatorRecurrence}" Value="{x:Static local:RepeatPeriod.Monthly}">
+                                                    <Setter Property="Fill" Value="{StaticResource MonthlyScheduleIndicatorBrush}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IndicatorRecurrence}" Value="{x:Static local:RepeatPeriod.Yearly}">
+                                                    <Setter Property="Fill" Value="{StaticResource YearlyScheduleIndicatorBrush}"/>
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding HasSchedule}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                 </DataTrigger>

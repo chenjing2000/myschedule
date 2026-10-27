@@ -36,6 +36,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            DigitMarkerChecks.Run();
             NumberInputChecks.Run();
             RepeatChecks.Run();
             ComboChecks.Run();
