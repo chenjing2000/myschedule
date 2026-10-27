@@ -41,7 +41,7 @@
         <Setter Property="SnapsToDevicePixels" Value="True"/>
     </Style>
 
-    <Style x:Key="DropdownScrollBarStyle" TargetType="ScrollBar">
+    <Style TargetType="ScrollBar">
         <Setter Property="Width" Value="6"/>
         <Setter Property="MinWidth" Value="0"/>
         <Setter Property="Focusable" Value="False"/>
@@ -54,14 +54,14 @@
                                ViewportSize="{TemplateBinding ViewportSize}"
                                Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Focusable="False">
+                                <RepeatButton x:Name="DecreasePageButton" Command="{x:Static ScrollBar.PageUpCommand}" Focusable="False">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>
                             </Track.DecreaseRepeatButton>
                             <Track.Thumb>
-                                <Thumb MinHeight="18">
+                                <Thumb x:Name="ScrollThumb" MinHeight="18">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
                                             <Border x:Name="ThumbBorder" Background="#B8BEC8" CornerRadius="3"/>
@@ -78,7 +78,7 @@
                                 </Thumb>
                             </Track.Thumb>
                             <Track.IncreaseRepeatButton>
-                                <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Focusable="False">
+                                <RepeatButton x:Name="IncreasePageButton" Command="{x:Static ScrollBar.PageDownCommand}" Focusable="False">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate>
                                     </RepeatButton.Template>
@@ -86,9 +86,25 @@
                             </Track.IncreaseRepeatButton>
                         </Track>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                            <Setter TargetName="DecreasePageButton" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+                            <Setter TargetName="IncreasePageButton" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
+                            <Setter TargetName="ScrollThumb" Property="MinHeight" Value="0"/>
+                            <Setter TargetName="ScrollThumb" Property="MinWidth" Value="18"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="Height" Value="6"/>
+                <Setter Property="MinHeight" Value="0"/>
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!-- Dropdowns share the same full-width, arrow-free field and centered rows. -->
@@ -159,9 +175,6 @@
                                 <ScrollViewer MaxHeight="{TemplateBinding MaxDropDownHeight}" CanContentScroll="False"
                                               VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                               Focusable="False" Padding="0">
-                                    <ScrollViewer.Resources>
-                                        <Style TargetType="ScrollBar" BasedOn="{StaticResource DropdownScrollBarStyle}"/>
-                                    </ScrollViewer.Resources>
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
                                 </ScrollViewer>
                             </Border>
