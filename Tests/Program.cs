@@ -36,6 +36,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            TrayMenuChecks.Run();
             SettingsChecks.Run();
             TrayChecks.Run();
             MultiFileChecks.Run();

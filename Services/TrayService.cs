@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
 using Forms = System.Windows.Forms;
 
@@ -11,7 +13,7 @@ internal sealed class TrayService : IDisposable
 {
     private readonly Window _window;
     private readonly Forms.NotifyIcon _icon;
-    private readonly Forms.ContextMenuStrip _menu;
+    private readonly ContextMenu _menu;
     private readonly Icon _trayIcon;
     private readonly Action _exit;
     private Window[] _hiddenOwnedWindows = [];
@@ -24,10 +26,16 @@ internal sealed class TrayService : IDisposable
         using var resource = Application.GetResourceStream(new Uri("/OneSchedule;component/icon/whale.ico", UriKind.Relative)).Stream;
         using var sourceIcon = new Icon(resource);
         _trayIcon = (Icon)sourceIcon.Clone();
-        _menu = new Forms.ContextMenuStrip();
-        _menu.Items.Add("打开", null, (_, _) => Restore());
-        _menu.Items.Add("退出", null, (_, _) => _exit());
-        _icon = new Forms.NotifyIcon { Icon = _trayIcon, Text = "OneSchedule", ContextMenuStrip = _menu, Visible = true };
+        _menu = new ContextMenu { Style = (Style)Application.Current.FindResource("TrayContextMenuStyle"), Placement = PlacementMode.MousePoint };
+        var open = new MenuItem { Header = "打开" };
+        var exitItem = new MenuItem { Header = "退出" };
+        open.Click += (_, _) => { _menu.IsOpen = false; Restore(); };
+        exitItem.Click += (_, _) => { _menu.IsOpen = false; _exit(); };
+        _menu.Items.Add(open);
+        _menu.Items.Add(exitItem);
+        _menu.Opened += Menu_Opened;
+        _icon = new Forms.NotifyIcon { Icon = _trayIcon, Text = "OneSchedule", Visible = true };
+        _icon.MouseUp += OnMouseUp;
         _icon.DoubleClick += OnDoubleClick;
         _window.Closing += OnClosing;
         _window.StateChanged += OnStateChanged;
@@ -73,6 +81,24 @@ internal sealed class TrayService : IDisposable
         }
     }
 
+    private void OnMouseUp(object? sender, Forms.MouseEventArgs e)
+    {
+        if (e.Button == Forms.MouseButtons.Right) ShowMenu();
+    }
+
+    internal void ShowMenu()
+    {
+        if (_disposed) return;
+        _menu.IsOpen = true;
+    }
+
+    private void Menu_Opened(object sender, RoutedEventArgs e)
+    {
+        // Foreground the popup itself so outside clicks dismiss it without showing the hidden main window.
+        if (PresentationSource.FromVisual(_menu) is HwndSource source) SetForegroundWindow(source.Handle);
+        _menu.Focus();
+    }
+
     private void OnDoubleClick(object? sender, EventArgs e) => Restore();
     private void OnClosing(object? sender, CancelEventArgs e) { e.Cancel = true; Hide(); }
     private void OnStateChanged(object? sender, EventArgs e)
@@ -87,9 +113,11 @@ internal sealed class TrayService : IDisposable
         _window.Closing -= OnClosing;
         _window.StateChanged -= OnStateChanged;
         _icon.DoubleClick -= OnDoubleClick;
+        _icon.MouseUp -= OnMouseUp;
+        _menu.Opened -= Menu_Opened;
+        _menu.IsOpen = false;
         _icon.Visible = false;
         _icon.Dispose();
-        _menu.Dispose();
         _trayIcon.Dispose();
     }
 
