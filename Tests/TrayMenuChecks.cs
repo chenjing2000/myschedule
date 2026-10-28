@@ -27,7 +27,7 @@ internal static class TrayMenuChecks
             tray.ShowMenu();Pump();
             Require(menu.IsOpen && !window.IsVisible && !window.ShowInTaskbar,"menu opens while main window stays hidden");
             Require(menu.FontSize==14 && menu.FontWeight==FontWeights.Normal,"menu uses normal 14 DIP text");
-            Require(Math.Abs(menu.ActualWidth - 64) < .01, "tray menu has fixed integer width of 64 DIP");
+            Require(Math.Abs(menu.ActualWidth - 72) < .01, "tray menu has fixed integer width of 72 DIP");
             foreach (MenuItem item in menu.Items)
             {
                 var text = Children<TextBlock>(item).Single();
@@ -56,6 +56,8 @@ internal static class TrayMenuChecks
             tray.ShowMenu();Pump();
             Press(menu,Key.Down);Pump();
             Require(first.IsHighlighted || first.IsKeyboardFocusWithin,"Down selects the first action");
+            var highlight=Children<Border>(first).Single(b=>b.Name=="Highlight");
+            Require(((SolidColorBrush)highlight.Background).Color==(Color)ColorConverter.ConvertFromString("#DDC5B8"),"highlight uses requested hover color");
             Press(first,Key.Enter);Pump();
             Require(!menu.IsOpen && window.IsVisible && window.ShowInTaskbar,"Enter on Open restores main window and dismisses menu");
             tray.Hide();tray.ShowMenu();Pump();
