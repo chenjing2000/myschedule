@@ -38,6 +38,8 @@ internal static class TrayMenuChecks
                     menu.FontSize, Brushes.Black, VisualTreeHelper.GetDpi(menu).PixelsPerDip);
                 Require(formatted.Width <= text.ActualWidth + .1 && textBounds.Left >= itemBounds.Left && textBounds.Right <= itemBounds.Right && itemBounds.Right <= menu.ActualWidth,
                     "complete menu text fits within item and popup bounds");
+                Require(Math.Abs((textBounds.Left + textBounds.Right) - (itemBounds.Left + itemBounds.Right)) < 1,
+                    "tray menu text is horizontally centered");
             }
 
             var outer=Children<Border>(menu).Single(b=>b.CornerRadius==new CornerRadius(8) && b.Effect is DropShadowEffect);

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -41,10 +41,12 @@ internal static class InteractionChecks
 
     private static void Calendar()
     {
+        var selectedDate = DateTime.Today == new DateTime(2026, 10, 28) ? new DateTime(2026, 10, 27) : new DateTime(2026, 10, 28);
+        var unselectedDate = DateTime.Today == new DateTime(2026, 10, 21) ? new DateTime(2026, 10, 22) : new DateTime(2026, 10, 21);
         var calendar = new CalendarView();
         calendar.Rebuild(2026, 10, []);
         Layout(calendar, 344, 320);
-        var button = Children<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel d && d.Date == new DateTime(2026, 10, 28));
+        var button = Children<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel d && d.Date == selectedDate);
         int invocations = 0;
         DateTime invoked = default;
         calendar.DayInvoked += (_, e) => { invocations++; invoked = e.Date; };
@@ -56,7 +58,7 @@ internal static class InteractionChecks
         var accent = ((SolidColorBrush)calendar.FindResource("AccentBrush")).Color;
         Require(Children<TextBlock>(circle).All(t => ((SolidColorBrush)t.Foreground).Color == accent), "both selected date texts use accent color");
         button.RaiseEvent(MouseEvent(Control.MouseDoubleClickEvent));
-        Require(invocations == 1 && invoked == new DateTime(2026, 10, 28), "double click opens exactly the selected date once");
+        Require(invocations == 1 && invoked == selectedDate, "double click opens exactly the selected date once");
         calendar.Rebuild(2026, 11, []);
         calendar.Rebuild(2026, 10, []);
         Layout(calendar, 344, 320);
@@ -73,7 +75,7 @@ internal static class InteractionChecks
         calendar.UpdateLayout();
         Require(((SolidColorBrush)circle.Background).Color.R < 150, "hovered day background stays dark during reminder flash: " + circle.Background);
         Require(Children<TextBlock>(button).All(t => ((SolidColorBrush)t.Foreground).Color.R > 200), "selection remains readable during reminder flash");
-        var unselected = Children<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel d && d.Date == new DateTime(2026, 10, 21));
+        var unselected = Children<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel d && d.Date == unselectedDate);
         unselected.SetValue(hoverKey, true);
         calendar.UpdateLayout();
         var unselectedCircle = Children<Border>(unselected).Single(b => b.Name == "DayCircle");
@@ -94,7 +96,7 @@ internal static class InteractionChecks
         today.SetValue(hoverKey, false);
         calendar.Rebuild(2026, 10, []);
         Layout(calendar, 344, 320);
-        Children<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel d && d.Date == new DateTime(2026, 10, 28))
+        Children<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel d && d.Date == selectedDate)
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         Render(calendar, "selected-date");
     }
@@ -226,6 +228,8 @@ internal static class InteractionChecks
             Children<Button>(root).Where(b => b.Style == editor.FindResource("ActionStyle")).All(b => b.ActualWidth == 60), "compact action widths");
         Require(Children<FrameworkElement>(root).Where(e => e is Button or ComboBox or TextBox).All(e => Math.Abs(e.ActualWidth - Math.Round(e.ActualWidth)) < .001),
             "editor controls have integer DIP widths");
+        Require(Children<TextBlock>(root).Any(t => t.Text == "备注") && !Children<TextBlock>(root).Any(t => t.Text == "地点"),
+            "new and edit dialogs use the remarks label");
         var unitLabels = Children<TextBlock>(root).Where(t => new[] { "年", "月", "日", "时", "分" }.Contains(t.Text));
         Require(unitLabels.All(t => t.Width == 22), "date and time unit slots share 22 DIP width");
         Require(Children<TextBlock>(root).Where(t => t.Text is "周期" or "重复").All(t => t.Width == 36), "period and repeat label slots match");
