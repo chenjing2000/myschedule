@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Nodes;
 
 namespace OneSchedule;
 
@@ -290,18 +289,13 @@ internal static class ScheduleJson
             version.ValueKind != JsonValueKind.Number ||
             !version.TryGetInt32(out int number) || number != 2)
             throw new FormatException("仅支持schemaVersion为2的新日程JSON格式；旧格式不兼容，文件未修改。");
-        var root = JsonNode.Parse(text)!.AsObject();
-        if (root["events"] is JsonArray events)
+        if (parsed.RootElement.TryGetProperty("events", out var events) && events.ValueKind == JsonValueKind.Array)
         {
-            foreach (var node in events)
-            {
-                if (node is not JsonObject item || !item.TryGetPropertyValue("location", out var legacy)) continue;
-                if (item.ContainsKey("note")) throw new FormatException("日程不能同时包含location和note字段。");
-                item.Remove("location");
-                item["note"] = legacy;
-            }
+            foreach (var item in events.EnumerateArray())
+                if (item.ValueKind == JsonValueKind.Object && item.TryGetProperty("location", out _))
+                    throw new FormatException("不支持旧 location 字段，请使用 note；文件未修改。");
         }
-        var document = root.Deserialize<Document>(Options)
+        var document = JsonSerializer.Deserialize<Document>(text, Options)
             ?? throw new FormatException("日程文件不能为空。");
         ValidateAll(document.Events);
         return document.Events;

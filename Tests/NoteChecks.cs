@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using OneSchedule;
 
@@ -6,32 +6,34 @@ internal static class NoteChecks
 {
     public static void Run()
     {
-        var item=new ScheduleItem { Id=Guid.NewGuid().ToString(), EventName="event", Note="old content", Calendar=CalendarKind.Solar,
+        var item=new ScheduleItem { Id=Guid.NewGuid().ToString(), EventName="event", Note="note content", Calendar=CalendarKind.Solar,
             StartDate=new ScheduleDate { Year=2026,Month=10,Day=28 }, EventTime=new TimeOnly(9,30) };
         string canonical=ScheduleJson.Serialize([item]);
         Require(canonical.Contains("\"note\"") && !canonical.Contains("\"location\""),"serialize only note");
-        string legacy=canonical.Replace("\"note\"", "\"location\"");
-        Require(ScheduleJson.Parse(legacy).Single().Note==item.Note,"read old location without losing text");
         Require(ScheduleJson.Parse(canonical).Single().Note==item.Note,"roundtrip note");
-        string both=canonical.Replace("\"note\":", "\"location\":\"conflict\",\"note\":");
-        bool rejected=false;try { ScheduleJson.Parse(both); } catch (Exception ex) when(ex is FormatException or JsonException) { rejected=true; }
-        Require(rejected,"conflicting old and new fields are rejected");
+        string legacy=canonical.Replace("\"note\"", "\"location\"");
+        try { ScheduleJson.Parse(legacy); throw new Exception("old location was accepted"); }
+        catch (FormatException ex) { Require(ex.Message.Contains("location") && ex.Message.Contains("note"), "legacy field produces a clear error"); }
+        Reject(canonical.Replace("\"note\":", "\"location\":\"old\",\"note\":"),"note and location together are rejected");
         string folder=Path.Combine(AppContext.BaseDirectory,"note-fixtures",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(folder);
         try
         {
-            string file=Path.Combine(folder,"events.json");File.WriteAllText(file,legacy);
-            var original=File.ReadAllBytes(file);
-            Require(DataUpgrade.UpgradeNotes(file)==0,"explicit field migration succeeds");
-            var backup=Directory.GetFiles(folder,"*.note-v2-*.bak").Single();
-            Require(File.ReadAllBytes(backup).SequenceEqual(original),"original bytes preserved in separate backup");
-            string converted=File.ReadAllText(file);
-            Require(converted.Contains("\"note\"") && !converted.Contains("\"location\"") && ScheduleJson.Parse(converted).Single().Note==item.Note,"converted data preserves note");
-            Require(DataUpgrade.UpgradeNotes(file)==0 && Directory.GetFiles(folder,"*.note-v2-*.bak").Length==1,"repeat migration is idempotent");
-            File.WriteAllText(file,both);string invalid=File.ReadAllText(file);
-            Require(DataUpgrade.UpgradeNotes(file)!=0 && File.ReadAllText(file)==invalid,"ambiguous input is never overwritten");
+            string file=Path.Combine(folder,"old.json");File.WriteAllText(file,legacy);byte[] original=File.ReadAllBytes(file);
+            var service=new ScheduleService(file);
+            Require(!service.Reload() && !service.CanSave && !service.Add(item),"legacy file cannot be saved over");
+            Require(File.ReadAllBytes(file).SequenceEqual(original),"legacy file bytes remain untouched");
+            File.WriteAllText(Path.Combine(folder,"valid.json"),canonical);
+            var multi=ScheduleService.ForDirectory(folder);
+            Require(!multi.Reload() && multi.Items.Count==1 && multi.Items[0].Note==item.Note,"valid independent file remains readable");
+            Require(File.ReadAllBytes(file).SequenceEqual(original),"directory scan leaves invalid legacy file unchanged");
         }
         finally { Directory.Delete(folder,true); }
-        Console.WriteLine("PASS: note serialization, legacy compatibility and safe migration");
+        Console.WriteLine("PASS: strict note-only JSON, rejection and legacy file protection");
+    }
+    private static void Reject(string text,string message)
+    {
+        bool rejected=false;try { ScheduleJson.Parse(text); } catch(Exception ex) when(ex is JsonException or FormatException or ArgumentException) { rejected=true; }
+        Require(rejected,message);
     }
     private static void Require(bool ok,string message) { if(!ok) throw new Exception(message); }
 }
