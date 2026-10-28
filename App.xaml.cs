@@ -62,7 +62,8 @@ public partial class App : Application
                 MainWindow.Loaded -= hideAfterLoaded;
                 Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
                 {
-                    _tray?.Hide();
+                    // A manual activation may already have restored taskbar visibility during startup.
+                    if (!MainWindow.ShowInTaskbar) _tray?.Hide();
                     MainWindow.Opacity = 1;
                     MainWindow.ShowActivated = true;
                 }));

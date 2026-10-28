@@ -132,6 +132,13 @@ try {
     if (-not $wake.WaitForExit(5000)) { throw 'Startup wake created another instance' }
     $null = WindowOf $startup
     Write-Output 'PASS: --startup remains quiet in tray and manual relaunch restores it'
+    CloseProbe $startup
+    $earlyActivation = Launch 'CalendarChecks.dll' '--startup-activation-host --startup'
+    Until { Test-Path -LiteralPath (Join-Path $fixture 'startup-activation.ready') } 'Early activation host did not finish startup'
+    $earlyActivation.Refresh()
+    if ($earlyActivation.HasExited -or $earlyActivation.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Queued startup hide overrode an early manual activation' }
+    Write-Output 'PASS: early manual activation is preserved during silent startup'
+
 
 }
 finally {

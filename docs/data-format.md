@@ -12,7 +12,7 @@
 
 | 字段 | 类型与含义 |
 |---|---|
-| id | 非空GUID字符串，列表内唯一，编辑保持不变 |
+| id | 非空GUID字符串，按GUID值判断且跨文件唯一；大小写或表示格式不同不构成新ID，编辑保持不变 |
 | name | 非空事件名称字符串 |
 | note | 备注字符串，可为 `""` |
 | calendar | `"solar"` 或 `"lunar"` |
@@ -55,3 +55,5 @@ dotnet run --project Tests/CalendarChecks.csproj -c Release -- --upgrade-v1 "dis
 ## 多文件运行目录
 
 运行程序扫描EXE旁data目录第一层全部.json文件（忽略扩展名大小写），按文件名OrdinalIgnoreCase排序，不递归子目录，不读取.bak。没有JSON时才创建有效空白MySchedule.json。新增写入排序第一个文件；修改、删除和提醒记录写回源文件。损坏文件不覆盖，跨文件ID冲突明确报错、排除冲突事件并禁用冲突文件写入；其他文件继续读取和操作。设置保存在EXE旁OneSchedule.settings.json，不属于日程数据。
+
+保存使用排他创建的 `.tmp` 文件；若同名临时文件已经存在，拒绝覆盖并保留该文件。失败时仅清理由本次操作创建的临时文件。

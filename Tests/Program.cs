@@ -14,6 +14,19 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args.Length == 2 && args[0] == "--upgrade-v1") return DataUpgrade.UpgradeFile(args[1]);
+        if (args.Contains("--startup-activation-host"))
+        {
+            var activationApp = new OneSchedule.App();
+            activationApp.InitializeComponent();
+            activationApp.Startup += (_, _) => activationApp.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal,
+                new Action(() =>
+                {
+                    activationApp.RestoreMainWindow();
+                    activationApp.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+                        new Action(() => File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "startup-activation.ready"), "ready")));
+                }));
+            return activationApp.Run();
+        }
         if (args.Contains("--instance-modal-host"))
         {
             var instanceApp = new OneSchedule.App();
@@ -36,6 +49,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            StorageSafetyChecks.Run();
             NoteChecks.Run();
             TrayMenuChecks.Run();
             SettingsChecks.Run();

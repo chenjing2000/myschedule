@@ -22,7 +22,7 @@ public sealed class ScheduleService
     private List<Source> _sources = [];
     private List<ScheduleItem> _items = [];
     private readonly Dictionary<ScheduleItem, Source> _owners = [];
-    private HashSet<string> _conflicts = [];
+    private HashSet<Guid> _conflicts = [];
 
     public ScheduleService(string? filePath = null)
     {
@@ -84,9 +84,9 @@ public sealed class ScheduleService
                 }
             }
             _sources = sources;
-            _conflicts = sources.SelectMany(source => source.Items).GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
-                .Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            foreach (var source in sources.Where(source => source.Items.Any(item => _conflicts.Contains(item.Id))))
+            _conflicts = sources.SelectMany(source => source.Items).GroupBy(item => Guid.Parse(item.Id))
+                .Where(group => group.Count() > 1).Select(group => group.Key).ToHashSet();
+            foreach (var source in sources.Where(source => source.Items.Any(item => _conflicts.Contains(Guid.Parse(item.Id)))))
             {
                 source.CanSave = false;
                 errors.Add(Path.GetFileName(source.Path) + "：事件ID与其他文件冲突，请修复后刷新。");
@@ -113,7 +113,7 @@ public sealed class ScheduleService
         _items = [];
         _owners.Clear();
         foreach (var source in _sources)
-        foreach (var item in source.Items.Where(item => !_conflicts.Contains(item.Id)))
+        foreach (var item in source.Items.Where(item => !_conflicts.Contains(Guid.Parse(item.Id))))
         {
             _items.Add(item);
             _owners.Add(item, source);
@@ -176,6 +176,7 @@ public sealed class ScheduleService
     {
         string file = source.Path;
         string temp = file + ".tmp";
+        bool createdTemp = false;
         try
         {
             if (!source.CanSave) throw new InvalidOperationException("文件尚未成功读取或存在冲突，禁止覆盖保存。请检查文件并刷新。");
@@ -187,7 +188,12 @@ public sealed class ScheduleService
             }
             string text = ScheduleJson.Serialize(source.Items);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(file))!);
-            File.WriteAllText(temp, text, new UTF8Encoding(false));
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write))
+            {
+                createdTemp = true;
+                using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+                writer.Write(text);
+            }
             if (File.Exists(file)) File.Replace(temp, file, file + ".bak");
             else File.Move(temp, file);
             source.LoadedText = text;
@@ -197,7 +203,7 @@ public sealed class ScheduleService
         catch (Exception ex)
         {
             LastError = Path.GetFileName(file) + "：" + ex.Message;
-            try { if (File.Exists(temp)) File.Delete(temp); }
+            try { if (createdTemp && File.Exists(temp)) File.Delete(temp); }
             catch (Exception cleanupError) when (cleanupError is IOException or UnauthorizedAccessException) { }
             return false;
         }
