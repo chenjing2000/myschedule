@@ -33,7 +33,7 @@ internal static class DialogChecks
                     {
                         dayCount++;
                         var list = (ListBox)day.FindName("ScheduleListBox");
-                        list.ItemsSource = new[] { new ScheduleItem { EventName = "去上课", Location = "一教201", EventTime = new TimeOnly(9, 29) } };
+                        list.ItemsSource = new[] { new ScheduleItem { EventName = "去上课", Note = "一教201", EventTime = new TimeOnly(9, 29) } };
                         day.UpdateLayout();
                         Require(Controls<Button>((DependencyObject)day.Content).Where(b => b.Style == day.FindResource("DayActionStyle")).All(b => b.ActualWidth == 60), "all day actions have 60 DIP integer width");
                         var texts = Texts((DependencyObject)day.Content).ToArray();

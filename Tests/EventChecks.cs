@@ -25,7 +25,7 @@ internal static class EventChecks
     private static ScheduleItem Event(int year = 2026, int month = 10, int day = 26,
         RepeatPeriod recurrence = RepeatPeriod.None, CalendarKind calendar = CalendarKind.Solar, bool leap = false) => new()
     {
-        Id = Guid.NewGuid().ToString(), EventName = "测试事项\"换行\n地点", Location = "办公室\\A",
+        Id = Guid.NewGuid().ToString(), EventName = "测试事项\"换行\n地点", Note = "办公室\\A",
         Calendar = calendar, StartDate = new ScheduleDate { Year = year, Month = month, Day = day, IsLeapMonth = leap },
         EventTime = new TimeOnly(9, 0), Recurrence = recurrence, RepeatCount = recurrence == RepeatPeriod.None ? 1 : 999, RemindingMinutes = 15
     };
@@ -53,7 +53,7 @@ internal static class EventChecks
         item.LastRemindedOccurrenceDate = DateOnly.FromDateTime(item.StartDate.ToSolar(item.Calendar));
         string text = ScheduleJson.Serialize([item]);
         var parsed = ScheduleJson.Parse(text).Single();
-        Check(parsed.StartDate == item.StartDate && parsed.EventName == item.EventName && parsed.Location == item.Location &&
+        Check(parsed.StartDate == item.StartDate && parsed.EventName == item.EventName && parsed.Note == item.Note &&
             parsed.Calendar == CalendarKind.Lunar && parsed.Recurrence == RepeatPeriod.Monthly && parsed.EventTime == item.EventTime &&
             parsed.LastRemindedOccurrenceDate == item.LastRemindedOccurrenceDate && parsed.Id == item.Id, "JSON full round trip including escaping and reminder date");
         Check(text.Contains("\"time\": \"09:00\"") && text.Contains("\"calendar\": \"lunar\""), "JSON uses HH:mm and named calendar");
@@ -67,7 +67,7 @@ internal static class EventChecks
         Rejected(() => ScheduleJson.Parse(text.Replace("\"monthly\"", "\"sometimes\"")), "unknown recurrence rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"monthly\"", "3")), "numeric recurrence rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"09:00\"", "\"9:00\"")), "noncanonical time rejected");
-        Rejected(() => ScheduleJson.Parse(text.Replace("\"location\":", "\"unknown\":")), "unknown property rejected");
+        Rejected(() => ScheduleJson.Parse(text.Replace("\"note\":", "\"unknown\":")), "unknown property rejected");
         Rejected(() => ScheduleJson.Serialize([item, item]), "duplicate IDs rejected");
         var invalid = Event(); invalid.RemindingMinutes = 100;
         Rejected(() => ScheduleJson.Serialize([invalid]), "reminder outside UI range rejected");

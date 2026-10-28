@@ -246,7 +246,7 @@ internal static class InteractionChecks
             var bounds = element.TransformToAncestor(root).TransformBounds(new Rect(element.RenderSize));
             Require(bounds.Right <= root.ActualWidth + .5 && bounds.Left >= 0, "editor controls and unit labels stay within actual content width");
         }
-        foreach (var name in new[] { "EventNameTextBox", "LocationTextBox" })
+        foreach (var name in new[] { "EventNameTextBox", "NoteTextBox" })
         {
             var box = Find<TextBox>(editor, name);
             var host = Children<ScrollViewer>(box).Single(h => h.Name == "PART_ContentHost");

@@ -35,7 +35,7 @@ public sealed class CalendarDayViewModel : INotifyPropertyChanged
 
     private static string FormatSchedule(ScheduleItem schedule) =>
         schedule.Time + "  " + schedule.EventName +
-        (string.IsNullOrEmpty(schedule.Location) ? "" : "（" + schedule.Location + "）");
+        (string.IsNullOrEmpty(schedule.Note) ? "" : "（" + schedule.Note + "）");
 }
 
 public sealed class CalendarDayEventArgs(DateTime date) : EventArgs

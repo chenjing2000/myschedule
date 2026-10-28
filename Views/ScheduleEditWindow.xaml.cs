@@ -45,7 +45,7 @@ public partial class ScheduleEditWindow : Window
         HourCombo.SelectedItem = TwoDigits(time.Hour);
         MinuteCombo.SelectedItem = TwoDigits(time.Minute);
         EventNameTextBox.Text = _editing?.EventName ?? "";
-        LocationTextBox.Text = _editing?.Location ?? "";
+        NoteTextBox.Text = _editing?.Note ?? "";
         RemindMinutesTextBox.Text = (_editing?.RemindingMinutes ?? 0).ToString();
         RefreshDateOptions();
     }
@@ -53,7 +53,7 @@ public partial class ScheduleEditWindow : Window
     private void EditorGrid_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         double width = Math.Max(0, Math.Floor(EditorGrid.ColumnDefinitions[1].ActualWidth));
-        EventNameTextBox.Width = LocationTextBox.Width = width;
+        EventNameTextBox.Width = NoteTextBox.Width = width;
     }
 
     private void RecurrenceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -174,7 +174,7 @@ public partial class ScheduleEditWindow : Window
             RepeatCount = repeatCount,
             Id = _editing?.Id ?? Guid.NewGuid().ToString(), Calendar = _calendar, StartDate = _date,
             Recurrence = recurrence, EventTime = new TimeOnly(int.Parse(hour), int.Parse(minute)),
-            EventName = EventNameTextBox.Text.Trim(), Location = LocationTextBox.Text.Trim(), RemindingMinutes = reminder
+            EventName = EventNameTextBox.Text.Trim(), Note = NoteTextBox.Text.Trim(), RemindingMinutes = reminder
         };
         if (_editing is not null && ScheduleOccurrence.SameReminderIdentity(_editing, result))
             result.LastRemindedOccurrenceDate = _editing.LastRemindedOccurrenceDate;

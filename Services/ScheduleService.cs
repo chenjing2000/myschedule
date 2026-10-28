@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
 
 namespace OneSchedule;
 
@@ -289,7 +290,18 @@ internal static class ScheduleJson
             version.ValueKind != JsonValueKind.Number ||
             !version.TryGetInt32(out int number) || number != 2)
             throw new FormatException("仅支持schemaVersion为2的新日程JSON格式；旧格式不兼容，文件未修改。");
-        var document = JsonSerializer.Deserialize<Document>(text, Options)
+        var root = JsonNode.Parse(text)!.AsObject();
+        if (root["events"] is JsonArray events)
+        {
+            foreach (var node in events)
+            {
+                if (node is not JsonObject item || !item.TryGetPropertyValue("location", out var legacy)) continue;
+                if (item.ContainsKey("note")) throw new FormatException("日程不能同时包含location和note字段。");
+                item.Remove("location");
+                item["note"] = legacy;
+            }
+        }
+        var document = root.Deserialize<Document>(Options)
             ?? throw new FormatException("日程文件不能为空。");
         ValidateAll(document.Events);
         return document.Events;
@@ -318,7 +330,7 @@ internal static class ScheduleJson
         if (item is null) throw new FormatException("日程不能为null。");
         if (!Guid.TryParse(item.Id, out var id) || id == Guid.Empty) throw new FormatException("日程ID必须是有效的非空GUID。");
         if (string.IsNullOrWhiteSpace(item.EventName)) throw new FormatException("事件名称不能为空。");
-        if (item.Location is null) throw new FormatException("地点必须是字符串。");
+        if (item.Note is null) throw new FormatException("备注必须是字符串。");
         if (!Enum.IsDefined(item.Calendar) || !Enum.IsDefined(item.Recurrence)) throw new FormatException("历法或周期无效。");
         if (item.RepeatCount is < 1 or > 999 || item.Recurrence == RepeatPeriod.None && item.RepeatCount != 1)
             throw new FormatException("重复次数必须是1～999的整数，非周期日程必须为1。");

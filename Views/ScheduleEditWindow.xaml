@@ -73,7 +73,7 @@
         <TextBlock Grid.Row="3" Text="事件" VerticalAlignment="Center" Margin="0,0,6,8"/>
         <TextBox x:Name="EventNameTextBox" HorizontalAlignment="Left" Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
         <TextBlock Grid.Row="4" Text="备注" VerticalAlignment="Center" Margin="0,0,6,8"/>
-        <TextBox x:Name="LocationTextBox" HorizontalAlignment="Left" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
+        <TextBox x:Name="NoteTextBox" HorizontalAlignment="Left" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
         <TextBlock Grid.Row="5" Text="提前提醒" VerticalAlignment="Center" Margin="0,0,6,8"/>
         <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
             <TextBox x:Name="RemindMinutesTextBox" TextAlignment="Center" Width="42" Text="0" MaxLength="2"

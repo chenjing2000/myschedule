@@ -52,7 +52,7 @@
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding EventName}" FontSize="14"
                                        Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Location}" FontSize="14" Margin="0,3,0,0"
+                            <TextBlock Text="{Binding Note}" FontSize="14" Margin="0,3,0,0"
                                        Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                     </Grid>

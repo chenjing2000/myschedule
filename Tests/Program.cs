@@ -13,6 +13,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--upgrade-note") return DataUpgrade.UpgradeNotes(args[1]);
         if (args.Length == 2 && args[0] == "--upgrade-v1") return DataUpgrade.UpgradeFile(args[1]);
         if (args.Contains("--instance-modal-host"))
         {
@@ -36,6 +37,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            NoteChecks.Run();
             TrayMenuChecks.Run();
             SettingsChecks.Run();
             TrayChecks.Run();
@@ -138,7 +140,7 @@ internal static class Program
             Check(Descendants<TextBlock>(circle).All(t => ((SolidColorBrush)t.Foreground).Color.R > 200), "reminder flash retains readable dates");
             calendar.SetReminderFlash(false);
             calendar.Rebuild(DateTime.Today.Year, DateTime.Today.Month,
-                [new ScheduleItem { StartDate = new ScheduleDate { Year = DateTime.Today.Year, Month = DateTime.Today.Month, Day = DateTime.Today.Day }, EventName = "Test appointment", EventTime = new TimeOnly(9, 30), Location = "Office" }]);
+                [new ScheduleItem { StartDate = new ScheduleDate { Year = DateTime.Today.Year, Month = DateTime.Today.Month, Day = DateTime.Today.Day }, EventName = "Test appointment", EventTime = new TimeOnly(9, 30), Note = "Office" }]);
             window.UpdateLayout();
             var marked = Descendants<Button>(calendar).Single(b => b.DataContext is CalendarDayViewModel { IsToday: true });
             Check(marked.ToolTip?.ToString()?.Contains("09:30  Test appointment（Office）") == true, "schedule tooltip retained");

@@ -4,17 +4,17 @@
 
 这是破坏性升级，不读取旧的数组、自定义无引号格式或旧版应用数据目录。读取失败保留文件和内存旧数据，但禁止保存及提醒写入；刷新成功后恢复。检查到加载后文件内容被外部改变也禁止覆盖，要求先刷新。应用不自动迁移数据；版本1到2仅提供下文的显式升级工具。
 
-源目录已有的日程与备份不会再自动复制到构建/发布目录，避免将旧数据或用户数据打包分发。已有运行目录若留有旧格式，需自行备份并移走旧文件，或自行替换为新格式；应用不会自动删除或覆盖它。空文件模板见 [empty-schedules.json](examples/empty-schedules.json)，完整示例见 [schedules.json](examples/schedules.json)。
+源目录已有的日程与备份不会再自动复制到构建/发布目录，避免将旧数据或用户数据打包分发。已有运行目录若留有版本1等旧版本，需自行备份并移走旧文件，或通过显式工具转换；应用不会自动删除或覆盖它。空文件模板见 [empty-schedules.json](examples/empty-schedules.json)，完整示例见 [schedules.json](examples/schedules.json)。
 
 ## 字段
 
-根对象必须包含 `schemaVersion: 2` 和 `events` 数组。每条事件必须包含下列全部字段（可空字段也必须出现），未知字段拒绝读取。
+根对象必须包含 `schemaVersion: 2` 和 `events` 数组。每条事件必须包含下列全部字段（可空字段也必须出现），未知字段拒绝读取。旧版版本2的 `location` 字段可作为 `note` 的读取兼容；同一事件不能同时含有二者。读取不会改写文件，后续保存统一写出 `note`。
 
 | 字段 | 类型与含义 |
 |---|---|
 | id | 非空GUID字符串，列表内唯一，编辑保持不变 |
 | name | 非空事件名称字符串 |
-| location | 备注字符串（界面显示为“备注”，保留原字段名），可为 `""` |
+| note | 备注字符串，可为 `""` |
 | calendar | `"solar"` 或 `"lunar"` |
 | startDate | 对应历法的 `{year, month, day, isLeapMonth}`，年月日为整数，闰月为布尔值 |
 | time | 本地时间，严格 `"HH:mm"`，无秒数 |
@@ -45,7 +45,7 @@ dotnet run --project Tests/CalendarChecks.csproj -c Release -- --upgrade-v1 "dis
 
 工具先验证转换结果，再原子替换文件；原始字节保留为同目录的 `MySchedule.json.schema-v1-<id>.bak`，已有滚动 `.bak` 不覆盖。版本2再次执行只校验，不改写。工具位于开发检查项目中，不随运行程序自动执行。
 
-所有现有事件按原起始日期计数：年100、日/周/月2、无1；可能已经到期。ID、名称、地点和其他字段保持不变，只有落在新范围外的提醒记录清为null。转换不会删除事件。
+所有现有事件按原起始日期计数：年100、日/周/月2、无1；可能已经到期。ID、名称、备注内容和其他数据保持不变；原 `location` 字段写为 `note`，只有落在新范围外的提醒记录清为null。转换不会删除事件。
 
 ## 验证
 
@@ -55,3 +55,14 @@ dotnet run --project Tests/CalendarChecks.csproj -c Release -- --upgrade-v1 "dis
 ## 多文件运行目录
 
 运行程序扫描EXE旁data目录第一层全部.json文件（忽略扩展名大小写），按文件名OrdinalIgnoreCase排序，不递归子目录，不读取.bak。没有JSON时才创建有效空白MySchedule.json。新增写入排序第一个文件；修改、删除和提醒记录写回源文件。损坏文件不覆盖，跨文件ID冲突明确报错、排除冲突事件并禁用冲突文件写入；其他文件继续读取和操作。设置保存在EXE旁OneSchedule.settings.json，不属于日程数据。
+
+
+## 显式字段转换
+
+旧版版本2的 `location` 可通过开发工具转换为 `note`，在项目目录执行：
+
+```powershell
+dotnet run --project Tests/CalendarChecks.csproj -c Release -- --upgrade-note "日程文件的完整路径"
+```
+
+工具先验证全部内容，再原子替换并将原始字节保存为独立的 `.note-v2-<随机标识>.bak`；现有滚动 `.bak` 不会覆盖。已采用 `note` 的文件不改写；同时包含两个字段或其他无效内容时拒绝转换。

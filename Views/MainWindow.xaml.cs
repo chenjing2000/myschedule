@@ -265,7 +265,7 @@ public partial class MainWindow : Window
     private void OnReminderDue(ScheduleItem item)
     {
         ReminderText.Text = $"提醒：{item.EventName}　{item.Time}" +
-                            (string.IsNullOrWhiteSpace(item.Location) ? "" : $"　·　{item.Location}") +
+                            (string.IsNullOrWhiteSpace(item.Note) ? "" : $"　·　{item.Note}") +
                             "　（点击关闭提醒）";
         ReminderBar.Visibility = Visibility.Visible;
     }

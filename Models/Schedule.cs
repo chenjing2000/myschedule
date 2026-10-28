@@ -27,7 +27,7 @@ public sealed class ScheduleItem
 {
     [JsonRequired] public string Id { get; set; } = "";
     [JsonRequired, JsonPropertyName("name")] public string EventName { get; set; } = "";
-    [JsonRequired] public string Location { get; set; } = "";
+    [JsonRequired] public string Note { get; set; } = "";
     [JsonRequired] public CalendarKind Calendar { get; set; }
     [JsonRequired] public ScheduleDate StartDate { get; set; } = new();
     [JsonRequired, JsonPropertyName("time")] public TimeOnly? EventTime { get; set; }

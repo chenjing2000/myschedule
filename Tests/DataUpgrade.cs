@@ -34,6 +34,34 @@ internal static class DataUpgrade
         return ScheduleJson.Serialize(items);
     }
 
+    internal static int UpgradeNotes(string path)
+    {
+        try
+        {
+            path = Path.GetFullPath(path);
+            string original = File.ReadAllText(path);
+            var items = ScheduleJson.Parse(original);
+            var root = JsonNode.Parse(original)!.AsObject();
+            bool hasLegacy = root["events"]!.AsArray().Any(node => node is JsonObject item && item.ContainsKey("location"));
+            if (!hasLegacy) { Console.WriteLine("PASS: already uses note; file unchanged"); return 0; }
+            string converted = ScheduleJson.Serialize(items);
+            string backup = path + ".note-v2-" + Guid.NewGuid().ToString("N") + ".bak";
+            string temp = path + ".note-upgrade.tmp";
+            if (File.Exists(backup)) throw new IOException("备份文件已存在，未修改日程。");
+            if (File.Exists(temp)) throw new IOException("升级临时文件已存在，未修改日程。");
+            try
+            {
+                File.WriteAllText(temp, converted, new UTF8Encoding(false));
+                if (File.ReadAllText(path) != original) throw new IOException("日程已被其他程序修改，未替换。");
+                File.Replace(temp, path, backup);
+            }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
+            Console.WriteLine("PASS: converted " + items.Count + " events; original backup: " + backup);
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+    }
+
     internal static int UpgradeFile(string path)
     {
         try
