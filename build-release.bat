@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 where dotnet >nul 2>nul
 if errorlevel 1 (
-  echo [ERROR] dotnet not found. Install .NET 8 SDK first.
+  echo [ERROR] dotnet not found. Install .NET 10 SDK first.
   pause
   exit /b 1
 )

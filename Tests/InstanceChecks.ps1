@@ -17,7 +17,7 @@ public static class InstanceProbeNative {
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
 }
 "@
-$source = Join-Path $PSScriptRoot "bin/$Configuration/net8.0-windows"
+$source = Join-Path $PSScriptRoot "bin/$Configuration/net10.0-windows"
 $fixtureParent = Join-Path $source 'instance-fixtures'
 $fixture = Join-Path $fixtureParent ([guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixture -Force | Out-Null
@@ -61,7 +61,8 @@ try {
     }
     $first = Launch $applicationHost
     $handle = WindowOf $first
-    [void][InstanceProbeNative]::ShowWindow($handle, 6)
+    # Send the same command as the title-bar minimize button, on the owning UI thread.
+    [void][InstanceProbeNative]::SendMessage($handle, 0x0112, [IntPtr]0xF020, [IntPtr]::Zero)
     Until { -not [InstanceProbeNative]::IsWindowVisible($handle) -and ([InstanceProbeNative]::GetWindowLong($handle,-20) -band 0x40000) -eq 0 } 'Minimize did not hide window and taskbar entry'
     $second = Launch $applicationHost
     if (-not $second.WaitForExit(5000)) { throw 'Second launch created another running instance' }

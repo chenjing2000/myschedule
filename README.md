@@ -17,8 +17,8 @@
 ## 编译环境
 
 - Windows 10 / 11
-- .NET 8 SDK
-- Visual Studio 2022/2026（勾选“.NET 桌面开发”）或命令行
+- .NET 10 SDK
+- Visual Studio 2026（勾选“.NET 桌面开发”）或命令行
 
 ## 编译运行
 
@@ -33,7 +33,7 @@
 
 普通开发构建及测试默认禁用apphost，只生成DLL，可通过 `dotnet run -- --test-host`（隔离开发启动）或 `dotnet run --project Tests/CalendarChecks.csproj` 启动。直接使用 `dotnet publish` 时，若需要最终EXE，必须显式传入 `-p:UseAppHost=true`；推荐统一使用发布脚本，避免遗留临时EXE。
 
-发布为Windows x64单文件EXE，不包含.NET运行时；分发时只需复制EXE。目标电脑需要.NET 8 Windows Desktop Runtime x64，缺少兼容运行时会由原生.NET启动器提示安装并提供下载入口。发布脚本清除旧的应用DLL/deps/runtimeconfig，保留已有用户数据和设置。
+发布为Windows x64单文件EXE，不包含.NET运行时；分发时只需复制EXE。这是运行环境的破坏性升级，不再支持.NET 8，也不配置跨主版本回退；日程JSON格式不变。目标电脑需要.NET 10 Windows Desktop Runtime x64，缺少兼容运行时会由原生.NET启动器提示安装并提供下载入口。发布脚本清除旧的应用DLL/deps/runtimeconfig，保留已有用户数据和设置。
 
 用户日程位于最终EXE旁的 `data/` 文件夹。同一用户的同一桌面会话只运行一个实例；再次启动会恢复并激活已有窗口或当前弹窗。
 
@@ -102,7 +102,7 @@
 
 ## 验证
 
-无第三方测试包的STA WPF检查：
+无第三方测试包的STA WPF检查（同时确认测试实际运行于.NET 10，且应用与测试程序集均以.NET 10为目标）：
 
 ```powershell
 dotnet run --project Tests/CalendarChecks.csproj
@@ -121,7 +121,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Tests/InstanceChecks.ps1
 
 进程检查默认用dotnet启动隔离DLL；传入发布目录时只创建必需的临时EXE副本并在结束后删除。覆盖重复启动退出、最小化恢复、前台激活、两层模态弹窗、退出后重启及快速启动竞争。可添加 `-RuntimeDirectory dist/OneSchedule` 检查已发布程序的隔离副本，包含关闭/最小化隐藏、`--startup` 静默驻留及启动期间的早期手动激活。
 
-`powershell -NoProfile -ExecutionPolicy Bypass -File Tests/PortableChecks.ps1` 检查纯EXE在含空格目录中的首次启动、data/settings生成，以及原生启动器的缺少兼容运行时错误（仅测试进程抑制GUI，未卸载系统.NET）。`--test-host` 仅用于隔离测试：独立单实例标识、模拟开机启动注册；正常启动不要使用此参数。
+`powershell -NoProfile -ExecutionPolicy Bypass -File Tests/PortableChecks.ps1` 检查纯EXE在含空格目录中的首次启动、data/settings生成，以及原生启动器的缺少.NET 10运行时错误（使用隔离运行时目录；若本机有.NET 8，则复制其运行时验证缺少.NET 10时不能启动；仅测试进程抑制GUI，未卸载系统.NET）。`--test-host` 仅用于隔离测试：独立单实例标识、模拟开机启动注册；正常启动不要使用此参数。
 
 ## 历史版本记录
 

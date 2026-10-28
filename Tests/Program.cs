@@ -49,6 +49,7 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            RuntimeChecks.Run();
             StorageSafetyChecks.Run();
             NoteChecks.Run();
             TrayMenuChecks.Run();

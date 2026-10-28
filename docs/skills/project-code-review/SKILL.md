@@ -26,6 +26,8 @@ description: Review and make necessary fixes in the OneSchedule WPF project, inc
 
 ## OneSchedule行为契约
 
+- 主程序和检查仅面向 net10.0-windows；Windows x64框架依赖单EXE要求.NET 10 Windows Desktop Runtime，不保留.NET 8目标或跨主版本回退。发布/测试路径及当前说明必须一致，历史记录保留原样。
+
 - 周期为无/日/周/月/年；repeatCount包含起始日，1～999，none为1；年默认100，日/周/月默认2，缺失日期不消耗次数。所选日期是起始日，之前不发生。日/周间隔1/7个实际日。
 - 月/年按所选历法匹配；不存在日期跳过，禁止自动改月末。阴历月重复包含普通月与闰月；年重复保持同月、同日、同闰月属性。
 - 阴历用数字年/月/日和独立闰月标志存储，不能构造为阳历DateTime。显示年二〇二六、月正…十/冬/腊及闰月、日初十/廿一；年/月/日单位在下拉框外。

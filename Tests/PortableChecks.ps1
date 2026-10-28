@@ -31,15 +31,38 @@ try {
     if (Get-ChildItem -LiteralPath $fixture -Filter *.dll) { throw 'Single EXE emitted adjacent DLLs' }
     $process.Kill();$process.WaitForExit();$process.Dispose();$process=$null
     Write-Output 'PASS: EXE alone runs from path with spaces and initializes adjacent data/settings'
+    # Isolate runtime selection so this also works when 10.0.0 is installed.
+    # Include the newest installed .NET 8 runtimes, when available, to verify that older runtimes do not satisfy the .NET 10 requirement.
+    $installedRoot=Split-Path (Get-Command dotnet -CommandType Application | Select-Object -First 1).Source -Parent
+    $runtimeRoot=Join-Path $fixture 'runtime without net10'
+    $fxr=Get-ChildItem -LiteralPath (Join-Path $installedRoot 'host/fxr') -Directory |
+        Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+    if (-not $fxr) { throw 'Cannot locate native runtime host for isolated fixture' }
+    New-Item -ItemType Directory -Path (Join-Path $runtimeRoot 'host/fxr') -Force | Out-Null
+    Copy-Item -LiteralPath $fxr.FullName -Destination (Join-Path $runtimeRoot 'host/fxr') -Recurse
+    foreach ($framework in @('Microsoft.NETCore.App','Microsoft.WindowsDesktop.App')) {
+        $shared=Join-Path $installedRoot ('shared/'+$framework)
+        $version8=Get-ChildItem -LiteralPath $shared -Directory |
+            Where-Object { $_.Name -match '^8\.0\.\d+$' } | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+        if ($version8) {
+            $destination=Join-Path $runtimeRoot ('shared/'+$framework)
+            New-Item -ItemType Directory -Path $destination -Force | Out-Null
+            Copy-Item -LiteralPath $version8.FullName -Destination $destination -Recurse
+        }
+    }
     $info=[Diagnostics.ProcessStartInfo]::new($exe,'--test-host')
     $info.UseShellExecute=$false;$info.RedirectStandardError=$true;$info.RedirectStandardOutput=$true
-    $info.Environment['DOTNET_ROLL_FORWARD']='Disable'
+    $info.Environment['DOTNET_ROOT_X64']=$runtimeRoot
+    $info.Environment['DOTNET_ROOT']=$runtimeRoot
+    # Keep patch selection deterministic; the published runtimeconfig policy is checked separately.
+    $info.Environment['DOTNET_ROLL_FORWARD']='LatestPatch'
     $info.Environment['DOTNET_DISABLE_GUI_ERRORS']='1'
     $process=[Diagnostics.Process]::Start($info)
     if (-not $process.WaitForExit(8000)) { throw 'Expected incompatible runtime selection to fail before startup' }
     $failure=$process.StandardError.ReadToEnd()+$process.StandardOutput.ReadToEnd()
     if ($process.ExitCode -eq 0 -or $failure -notmatch 'You must install or update .NET|Framework:|Download') { throw ('Native runtime error absent: '+$failure) }
-    Write-Output 'PASS: native .NET host reports missing compatible runtime; GUI suppressed only in test'
+    if ($failure -notmatch "version '10\.0\.") { throw ('Published EXE does not require .NET 10: '+$failure) }
+    Write-Output 'PASS: isolated native host reports missing .NET 10; GUI suppressed only in test'
 }
 finally {
     if ($process) { if (-not $process.HasExited) { $process.Kill();$process.WaitForExit() };$process.Dispose() }

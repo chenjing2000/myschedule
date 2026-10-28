@@ -11,10 +11,10 @@ New-Item -ItemType Directory -Path $destination -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $staging 'OneSchedule.exe') -Destination (Join-Path $destination 'OneSchedule.exe') -Force
 # Only obsolete application binaries are removed. User schedules/settings/backups stay in place.
 foreach ($relative in @('dist/OneSchedule/OneSchedule.dll','dist/OneSchedule/OneSchedule.deps.json','dist/OneSchedule/OneSchedule.runtimeconfig.json',
- 'bin/Release/net8.0-windows/win-x64/OneSchedule.exe','obj/Release/net8.0-windows/win-x64/apphost.exe',
+ 'bin/Release/net10.0-windows/win-x64/OneSchedule.exe','obj/Release/net10.0-windows/win-x64/apphost.exe',
  'obj/portable-publish/OneSchedule.exe')) {
     $target = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot $relative))
     if (-not $target.StartsWith($PSScriptRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Build artifact path escaped project.' }
     if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Force }
 }
-Write-Output 'Published single EXE (requires .NET 8 Windows Desktop Runtime x64): dist/OneSchedule/OneSchedule.exe'
+Write-Output 'Published single EXE (requires .NET 10 Windows Desktop Runtime x64): dist/OneSchedule/OneSchedule.exe'
