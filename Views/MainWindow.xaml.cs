@@ -59,7 +59,9 @@ public partial class MainWindow : Window
 
     private void DateTimer_Tick(object? sender, EventArgs e)
     {
-        if (_headerDate == DateTime.Today) return;
+        var now = DateTime.Now;
+        Calendar.RefreshIndicators(now);
+        if (_headerDate == now.Date) return;
         UpdateToday();
         RefreshView();
     }
@@ -264,6 +266,7 @@ public partial class MainWindow : Window
 
     private void OnReminderDue(ScheduleItem item)
     {
+        Calendar.RefreshIndicators(DateTime.Now);
         ReminderText.Text = $"提醒：{item.EventName}　{item.Time}" +
                             (string.IsNullOrWhiteSpace(item.Note) ? "" : $"　·　{item.Note}") +
                             "　（点击关闭提醒）";

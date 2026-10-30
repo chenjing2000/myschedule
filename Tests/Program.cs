@@ -58,6 +58,7 @@ internal static class Program
             MultiFileChecks.Run();
             WeekdayChecks.Run();
             ScrollBarChecks.Run();
+            NextMarkerChecks.Run();
             DigitMarkerChecks.Run();
             NumberInputChecks.Run();
             RepeatChecks.Run();

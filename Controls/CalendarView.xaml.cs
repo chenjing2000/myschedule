@@ -28,7 +28,22 @@ public sealed class CalendarDayViewModel : INotifyPropertyChanged
     public required bool HasSchedule { get; init; }
     public bool IsSupportedDate => Date.Year >= Lunar.MinYear && Date.Year <= Lunar.MaxYear;
     public required IReadOnlyList<ScheduleItem> Schedules { get; init; }
-    public RepeatPeriod? IndicatorRecurrence => Schedules.FirstOrDefault()?.Recurrence;
+    private RepeatPeriod? _indicatorRecurrence;
+    public RepeatPeriod? IndicatorRecurrence => _indicatorRecurrence;
+
+    internal void RefreshIndicator(DateTime now)
+    {
+        var occurrenceDate = DateOnly.FromDateTime(Date);
+        var pending = Schedules.Where(item => item.LastRemindedOccurrenceDate != occurrenceDate);
+        var next = pending.FirstOrDefault(item => item.EventTime is TimeOnly time &&
+            (Date != now.Date || Date.Add(time.ToTimeSpan()) >= now ||
+             Date.Add(time.ToTimeSpan()).AddMinutes(3 - item.RemindingMinutes) >= now))
+            ?? pending.FirstOrDefault(item => !item.HasTime);
+        var indicator = (next ?? Schedules.LastOrDefault())?.Recurrence;
+        if (_indicatorRecurrence == indicator) return;
+        _indicatorRecurrence = indicator;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IndicatorRecurrence)));
+    }
     public string? TooltipText => Schedules.Count == 0
         ? null
         : string.Join(Environment.NewLine, Schedules.Select(FormatSchedule));
@@ -74,12 +89,13 @@ public partial class CalendarView : UserControl
         var gridStart = first.AddDays(-mondayOffset);
         const int weeks = 6;
 
+        var now = DateTime.Now;
         var days = new List<CalendarDayViewModel>(weeks * 7);
         for (int i = 0; i < weeks * 7; i++)
         {
             var date = gridStart.AddDays(i);
             var list = schedules.Where(item => ScheduleOccurrence.IsOnDate(item, date)).OrderBy(item => item.EventTime).ToList();
-            days.Add(new CalendarDayViewModel
+            var day = new CalendarDayViewModel
             {
                 Date = date,
                 SolarDay = date.Day,
@@ -90,10 +106,18 @@ public partial class CalendarView : UserControl
                 IsWeekend = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday,
                 HasSchedule = list.Count > 0,
                 Schedules = list
-            });
+            };
+            day.RefreshIndicator(now);
+            days.Add(day);
         }
 
         DaysItems.ItemsSource = days;
+    }
+
+    internal void RefreshIndicators(DateTime now)
+    {
+        foreach (CalendarDayViewModel day in DaysItems.Items)
+            day.RefreshIndicator(now);
     }
 
     public void SetReminderFlash(bool dark) => IsReminderFlashDark = dark;
