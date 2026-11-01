@@ -137,8 +137,7 @@ public sealed class ScheduleService
         if (!_owners.TryGetValue(existing, out var source)) return false;
         int index = source.Items.IndexOf(existing);
         replacement.Id = existing.Id;
-        replacement.LastRemindedOccurrenceDate = ScheduleOccurrence.SameReminderIdentity(existing, replacement)
-            ? existing.LastRemindedOccurrenceDate : null;
+        ScheduleOccurrence.CopyReminderState(existing, replacement);
         return Commit(source, () => source.Items[index] = replacement, () => source.Items[index] = existing);
     }
 
@@ -262,7 +261,13 @@ internal static class ScheduleOccurrence
     public static bool SameReminderIdentity(ScheduleItem a, ScheduleItem b) =>
         a.Calendar == b.Calendar && a.StartDate == b.StartDate && a.Recurrence == b.Recurrence &&
         a.EventTime == b.EventTime && a.RemindingMinutes == b.RemindingMinutes &&
-        (a.LastRemindedOccurrenceDate is not DateOnly previous || IsOnDate(b, previous.ToDateTime(TimeOnly.MinValue)));
+        a.ReminderCount == b.ReminderCount && a.ReminderIntervalMinutes == b.ReminderIntervalMinutes &&
+        a.ReminderDurationMinutes == b.ReminderDurationMinutes;
+
+    public static void CopyReminderState(ScheduleItem existing, ScheduleItem replacement) =>
+        replacement.CompletedReminderDates = SameReminderIdentity(existing,replacement)
+            ? existing.CompletedReminderDates.Where(date => IsOnDate(replacement,date.ToDateTime(TimeOnly.MinValue))).ToList()
+            : [];
 }
 
 internal static class ScheduleJson
@@ -293,8 +298,8 @@ internal static class ScheduleJson
         if (parsed.RootElement.ValueKind != JsonValueKind.Object ||
             !parsed.RootElement.TryGetProperty("schemaVersion", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out int number) || number != 2)
-            throw new FormatException("仅支持schemaVersion为2的新日程JSON格式；旧格式不兼容，文件未修改。");
+            !version.TryGetInt32(out int number) || number != 3)
+            throw new FormatException("仅支持schemaVersion为3的新日程JSON格式；旧格式不兼容，文件未修改。");
         if (parsed.RootElement.TryGetProperty("events", out var events) && events.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in events.EnumerateArray())
@@ -311,7 +316,7 @@ internal static class ScheduleJson
     {
         var list = items.ToList();
         ValidateAll(list);
-        return JsonSerializer.Serialize(new Document { SchemaVersion = 2, Events = list }, Options) + Environment.NewLine;
+        return JsonSerializer.Serialize(new Document { SchemaVersion = 3, Events = list }, Options) + Environment.NewLine;
     }
 
     private static void ValidateAll(List<ScheduleItem>? items)
@@ -339,9 +344,15 @@ internal static class ScheduleJson
         if (!item.HasTime || item.EventTime!.Value.Second != 0 || item.EventTime.Value.Ticks % TimeSpan.TicksPerMinute != 0)
             throw new FormatException("时间必须精确到分钟。");
         if (item.RemindingMinutes is < 0 or > 99) throw new FormatException("提前提醒必须是0～99分钟。");
-        if (item.LastRemindedOccurrenceDate is DateOnly occurrence &&
-            !ScheduleOccurrence.IsOnDate(item, occurrence.ToDateTime(TimeOnly.MinValue)))
-            throw new FormatException("提醒记录必须对应事件的实际发生日期。");
+        if (item.ReminderCount is < 1 or > 99 || item.ReminderIntervalMinutes is < 1 or > 99 ||
+            item.ReminderDurationMinutes is < 1 or > 99)
+            throw new FormatException("提醒次数、间隔和时长必须是1～99的整数。");
+        if (item.ReminderCount > 1 && item.ReminderIntervalMinutes < item.ReminderDurationMinutes)
+            throw new FormatException("提醒间隔不能小于提醒时长。");
+        if (item.CompletedReminderDates is null || item.CompletedReminderDates.Count > item.RepeatCount ||
+            item.CompletedReminderDates.Distinct().Count() != item.CompletedReminderDates.Count ||
+            item.CompletedReminderDates.Any(date => !ScheduleOccurrence.IsOnDate(item,date.ToDateTime(TimeOnly.MinValue))))
+            throw new FormatException("提醒完成记录必须是不重复的实际发生日期。");
     }
 
     private sealed class MinuteTimeConverter : JsonConverter<TimeOnly>

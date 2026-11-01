@@ -54,7 +54,7 @@ public partial class MainWindow : Window
         UpdateToday();
         NavigateTo(_displayMonth.Year, _displayMonth.Month);
         _dateTimer.Start();
-        _reminderService = new ReminderService(_scheduleService, this, SetReminderFlash, OnReminderDue, ShowStatus);
+        _reminderService = new ReminderService(_scheduleService, this, SetReminderFlash, OnReminderDue, ShowStatus, OnReminderStateChanged);
     }
 
     private void DateTimer_Tick(object? sender, EventArgs e)
@@ -267,10 +267,19 @@ public partial class MainWindow : Window
     private void OnReminderDue(ScheduleItem item)
     {
         Calendar.RefreshIndicators(DateTime.Now);
-        ReminderText.Text = $"提醒：{item.EventName}　{item.Time}" +
-                            (string.IsNullOrWhiteSpace(item.Note) ? "" : $"　·　{item.Note}") +
-                            "　（点击关闭提醒）";
-        ReminderBar.Visibility = Visibility.Visible;
+        var active=_reminderService?.ActiveReminders;
+        ReminderText.Text=active is { Count: > 0 }
+            ? string.Join(Environment.NewLine,active.Select(occurrence =>
+                $"提醒：{occurrence.Item.EventName}　{occurrence.Item.Time}（第{occurrence.Round}/{occurrence.Item.ReminderCount}次）" +
+                (string.IsNullOrWhiteSpace(occurrence.Item.Note) ? "" : $"　·　{occurrence.Item.Note}"))) + "　（点击关闭当前提醒）"
+            : $"提醒：{item.EventName}　{item.Time}";
+        ReminderBar.Visibility=Visibility.Visible;
+    }
+
+    private void OnReminderStateChanged()
+    {
+        Calendar.RefreshIndicators(DateTime.Now);
+        if (_reminderService?.IsAlertActive != true) ReminderBar.Visibility=Visibility.Collapsed;
     }
 
     private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -285,7 +294,7 @@ public partial class MainWindow : Window
     private void DismissReminder()
     {
         if (_reminderService?.DismissAlert() != true) return;
-        ReminderBar.Visibility = Visibility.Collapsed;
+        if (!_reminderService.IsAlertActive) ReminderBar.Visibility = Visibility.Collapsed;
     }
 
     private void MainWindow_Closed(object? sender, EventArgs e)

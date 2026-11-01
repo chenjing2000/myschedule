@@ -40,8 +40,11 @@ public sealed class ScheduleItem
         RepeatPeriod.Yearly => 100,
         _ => 2
     };
-    [JsonRequired, JsonPropertyName("reminderMinutes")] public int RemindingMinutes { get; set; } = 0;
-    [JsonRequired] public DateOnly? LastRemindedOccurrenceDate { get; set; }
+    [JsonRequired, JsonPropertyName("reminderMinutes")] public int RemindingMinutes { get; set; } = 30;
+    [JsonRequired] public int ReminderCount { get; set; } = 3;
+    [JsonRequired] public int ReminderIntervalMinutes { get; set; } = 3;
+    [JsonRequired] public int ReminderDurationMinutes { get; set; } = 1;
+    [JsonRequired] public List<DateOnly> CompletedReminderDates { get; set; } = [];
 
     [JsonIgnore] public string Time => EventTime?.ToString("HH:mm", CultureInfo.InvariantCulture) ?? "";
     [JsonIgnore] public bool HasTime => EventTime.HasValue;

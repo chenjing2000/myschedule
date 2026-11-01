@@ -103,12 +103,12 @@ internal static class InteractionChecks
 
     private static void Editor()
     {
-        Require(new ScheduleItem().RemindingMinutes == 0, "new model reminder defaults to zero");
+        Require(new ScheduleItem().RemindingMinutes == 30, "new model reminder defaults to thirty minutes");
         var editor = NewEditor(null);
         try
         {
             var reminder = Find<TextBox>(editor, "RemindMinutesTextBox");
-            Require(reminder.Text == "0", "new editor reminder defaults to zero");
+            Require(reminder.Text == "30", "new editor reminder defaults to thirty minutes");
             reminder.Text = "15"; reminder.CaretIndex = 0;
             reminder.RaiseEvent(MouseEvent(UIElement.PreviewMouseLeftButtonDownEvent));
             Require(reminder.CaretIndex == 2 && reminder.SelectionLength == 0, "click places reminder caret after digits without selecting");
@@ -187,7 +187,8 @@ internal static class InteractionChecks
             day.Opacity = 0; day.ShowInTaskbar = false; day.Show();
             var list = Find<ListBox>(day, "ScheduleListBox");
             day.UpdateLayout();
-            Require(list.SelectedItem is not null, "fixture starts with a selected event");
+            list.SelectedIndex=0;
+            Require(list.SelectedItem is not null, "fixture explicitly selects an event");
             list.RaiseEvent(MouseEvent(Control.MouseDoubleClickEvent, list));
             Require(opened.Count == 1 && opened[0] == ("新增日程", "", 26), "blank double click creates a blank event for the viewed date despite existing selection");
             var row = (ListBoxItem)list.ItemContainerGenerator.ContainerFromIndex(0);
@@ -209,6 +210,7 @@ internal static class InteractionChecks
             list.RaiseEvent(MouseEvent(Control.MouseDoubleClickEvent, row));
             Require(service.Items.Count == 2 && service.Items.Single(i => i.Id == originalId).EventName == "updated",
                 "edit saves replacement while preserving ID without a delete protocol");
+            list.SelectedItem=list.Items.Cast<ScheduleItem>().Single(i=>i.Id==originalId);
             Find<Button>(day, "DeleteButton").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             Require(service.Items.Count == 1 && service.Items[0].EventName == "added", "day-list Delete remains the deletion entry point");
         }
@@ -236,9 +238,9 @@ internal static class InteractionChecks
         if (Find<TextBlock>(editor, "ValidationText").Visibility == Visibility.Collapsed)
         {
             var cancel = Children<Button>(root).Single(b => b.Content?.ToString() == "取消");
-            var reminder = Find<TextBox>(editor, "RemindMinutesTextBox");
+            var reminder = Find<Border>(editor, "ReminderSettingsBorder");
             double gap = cancel.TransformToAncestor(root).Transform(new Point()).Y - reminder.TransformToAncestor(root).Transform(new Point(0, reminder.ActualHeight)).Y;
-            Require(Math.Abs(gap - 16) <= 1, "compact reminder-to-footer gap is 16 DIP");
+            Require(Math.Abs(gap - 16) <= 1, "compact settings-group-to-footer gap is 16 DIP");
         }
         foreach (var element in Children<FrameworkElement>(root).Where(e => e is ComboBox or TextBox ||
                      e is TextBlock t && new[] { "年", "月", "日", "时", "分" }.Contains(t.Text)))

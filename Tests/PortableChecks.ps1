@@ -22,11 +22,11 @@ try {
             $document=Get-Content -LiteralPath (Join-Path $fixture 'data/MySchedule.json') -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
             $settings=Get-Content -LiteralPath (Join-Path $fixture 'OneSchedule.settings.json') -Raw -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
         } catch { $readError=$_.Exception.Message }
-        if ($document.schemaVersion -eq 2 -and @($document.events).Count -eq 0 -and
+        if ($document.schemaVersion -eq 3 -and @($document.events).Count -eq 0 -and
             $settings.startWithWindows -eq $true -and $process.MainWindowHandle -ne [IntPtr]::Zero) { break }
         Start-Sleep -Milliseconds 100
     } while ([DateTime]::UtcNow -lt $deadline)
-    if ($process.MainWindowHandle -eq [IntPtr]::Zero -or $document.schemaVersion -ne 2 -or
+    if ($process.MainWindowHandle -eq [IntPtr]::Zero -or $document.schemaVersion -ne 3 -or
         @($document.events).Count -ne 0 -or $settings.startWithWindows -ne $true) { throw ('EXE-only first-run initialization failed: '+$readError) }
     if (Get-ChildItem -LiteralPath $fixture -Filter *.dll) { throw 'Single EXE emitted adjacent DLLs' }
     $process.Kill();$process.WaitForExit();$process.Dispose();$process=$null

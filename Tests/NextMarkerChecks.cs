@@ -16,43 +16,43 @@ internal static class NextMarkerChecks
         view.Rebuild(date.Year, date.Month, [late, early]);
         var day = Day(view, date);
         Require(day.IndicatorRecurrence == RepeatPeriod.Daily, "first pending event follows event time");
-        early.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date);
+        early.CompletedReminderDates = [DateOnly.FromDateTime(date)];
         view.Rebuild(date.Year, date.Month, [late, early]);
         day = Day(view, date);
         Require(day.IndicatorRecurrence == RepeatPeriod.Yearly, "recorded reminder advances marker after rebuild");
-        early.LastRemindedOccurrenceDate = null;
+        early.CompletedReminderDates = [];
         Refresh(view, date.AddHours(7));
         Require(day.IndicatorRecurrence == RepeatPeriod.Daily, "rollback leaves earlier event pending");
         Layout(view);
         var marker = Children<Polygon>(view).Single(p => ReferenceEquals(p.DataContext, day));
-        early.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date);
+        early.CompletedReminderDates = [DateOnly.FromDateTime(date)];
         Refresh(view, date.AddHours(7));
         Layout(view);
         Require(((SolidColorBrush)marker.Fill).Color == (Color)ColorConverter.ConvertFromString("#F45D75"), "existing bound polygon updates without rebuilding date cells");
         Require(day.HasSchedule && day.Schedules.Count == 2 && day.TooltipText!.Contains("Daily") && day.TooltipText.Contains("Yearly"), "all events remain in tooltip and schedule list");
-        late.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date);
+        late.CompletedReminderDates = [DateOnly.FromDateTime(date)];
         Refresh(view, date.AddHours(7));
         Require(day.IndicatorRecurrence == RepeatPeriod.Yearly && marker.Visibility == Visibility.Visible, "all reminded retains last event marker");
-        early.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date.AddDays(-1));
+        early.CompletedReminderDates = [DateOnly.FromDateTime(date.AddDays(-1))];
         Refresh(view, date.AddHours(7));
         Require(day.IndicatorRecurrence == RepeatPeriod.Daily, "reminder for another occurrence does not suppress this date");
-        late.LastRemindedOccurrenceDate = null;
+        late.CompletedReminderDates = [];
         Refresh(view, date.AddHours(12));
         Require(day.IndicatorRecurrence == RepeatPeriod.Yearly, "expired morning event yields to upcoming afternoon event");
         Refresh(view, date.AddHours(8).AddMinutes(2));
         Require(day.IndicatorRecurrence == RepeatPeriod.Daily, "unrecorded reminder within grace period stays eligible");
-        early.RemindingMinutes = 60;
+        early.ReminderCount = 1; early.RemindingMinutes = 60;
         Refresh(view, date.AddHours(8).AddMinutes(2));
         Require(day.IndicatorRecurrence == RepeatPeriod.Yearly, "grace uses reminder time rather than event time");
         Refresh(view, date.AddHours(7).AddMinutes(30));
-        Require(day.IndicatorRecurrence == RepeatPeriod.Daily, "upcoming event remains eligible after early reminder window");
+        Require(day.IndicatorRecurrence == RepeatPeriod.Yearly, "finished reminder series advances even before the event time");
         Refresh(view, date.AddHours(17));
         Require(day.IndicatorRecurrence == RepeatPeriod.Yearly, "all elapsed retains last event marker");
         var sameTime = Item(date, RepeatPeriod.Weekly, 8);
         view.Rebuild(date.Year, date.Month, [early, sameTime]);
         Refresh(view, date.AddHours(7));
         Require(Day(view,date).IndicatorRecurrence == RepeatPeriod.Daily, "equal times preserve source order");
-        early.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date);
+        early.CompletedReminderDates = [DateOnly.FromDateTime(date)];
         Refresh(view, date.AddHours(7));
         Require(Day(view,date).IndicatorRecurrence == RepeatPeriod.Weekly, "equal-time reminders advance separately");
         view.Rebuild(date.Year, date.Month, []);
@@ -67,17 +67,17 @@ internal static class NextMarkerChecks
         Require(Day(view,date).IndicatorRecurrence == RepeatPeriod.None, "untimed event remains visible when no timed event is pending");
         var first = Item(date, RepeatPeriod.Daily, 8);
         var second = Item(date, RepeatPeriod.Yearly, 16);
-        first.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date);
+        first.CompletedReminderDates = [DateOnly.FromDateTime(date)];
         view.Rebuild(date.Year, date.Month, ScheduleJson.Parse(ScheduleJson.Serialize([first, second])));
         Require(Day(view,date).IndicatorRecurrence == RepeatPeriod.Yearly, "persisted reminder state still selects the next event after reload");
-        first.LastRemindedOccurrenceDate = null;
+        first.CompletedReminderDates = [];
         var main = new MainWindow();
         try
         {
             var calendar = (CalendarView)main.FindName("Calendar");
             calendar.Rebuild(date.Year,date.Month,[first,second]);
             var liveDay = Day(calendar,date);
-            first.LastRemindedOccurrenceDate = DateOnly.FromDateTime(date);
+            first.CompletedReminderDates = [DateOnly.FromDateTime(date)];
             typeof(MainWindow).GetMethod("OnReminderDue", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(main,[first]);
             Require(liveDay.IndicatorRecurrence == RepeatPeriod.Yearly, "successful reminder callback updates the existing main calendar");
         }
@@ -89,7 +89,7 @@ internal static class NextMarkerChecks
         Id = Guid.NewGuid().ToString(), Calendar = CalendarKind.Solar,
         StartDate = new ScheduleDate { Year = date.Year, Month = date.Month, Day = date.Day },
         Recurrence = recurrence, RepeatCount = ScheduleItem.DefaultRepeatCount(recurrence),
-        EventTime = new TimeOnly(hour,0), EventName = recurrence.ToString()
+        EventTime = new TimeOnly(hour,0), EventName = recurrence.ToString(), RemindingMinutes = 0, ReminderCount = 1, ReminderDurationMinutes = 3
     };
     private static CalendarDayViewModel Day(CalendarView view, DateTime date) => ((ItemsControl)view.FindName("DaysItems")).Items.Cast<CalendarDayViewModel>().Single(day => day.Date == date);
     private static void Refresh(CalendarView view, DateTime now) => view.RefreshIndicators(now);

@@ -29,17 +29,18 @@ internal static class RepeatChecks
             ScheduleOccurrence.IsOnDate(item, Lunar.ToSolar(2023, 3, 1, false)) &&
             !ScheduleOccurrence.IsOnDate(item, Lunar.ToSolar(2023, 4, 1, false)), "lunar leap start excludes the preceding ordinary month");
         item = Item(RepeatPeriod.Daily, 1);
-        item.LastRemindedOccurrenceDate = new(2026, 1, 31);
+        item.CompletedReminderDates = [new DateOnly(2026, 1, 31)];
         var replacement = Item(RepeatPeriod.Daily, 2);
         Require(ScheduleOccurrence.SameReminderIdentity(item, replacement), "count expansion preserves valid reminder deduplication");
         replacement.StartDate = item.StartDate;
         typeof(ScheduleItem).GetProperty("RepeatCount")!.SetValue(item, 3);
-        item.LastRemindedOccurrenceDate = new(2026, 2, 2);
-        Require(!ScheduleOccurrence.SameReminderIdentity(item, replacement), "count shrink clears an out-of-range reminder record");
+        item.CompletedReminderDates = [new DateOnly(2026, 2, 2)];
+        ScheduleOccurrence.CopyReminderState(item,replacement);
+        Require(replacement.CompletedReminderDates.Count==0, "count shrink clears an out-of-range reminder record");
         item = Item(RepeatPeriod.Daily, 2);
         string json = ScheduleJson.Serialize([item]);
-        Require(JsonNode.Parse(json)!["schemaVersion"]!.GetValue<int>() == 2 &&
-            ScheduleJson.Parse(json).Count == 1, "strict version2 JSON roundtrip");
+        Require(JsonNode.Parse(json)!["schemaVersion"]!.GetValue<int>() == 3 &&
+            ScheduleJson.Parse(json).Count == 1, "strict version3 JSON roundtrip");
         foreach (int invalid in new[] { 0, -1, 1000 })
         {
             typeof(ScheduleItem).GetProperty("RepeatCount")!.SetValue(item, invalid);
@@ -126,7 +127,12 @@ internal static class RepeatChecks
     {
         var source = JsonNode.Parse(ScheduleJson.Serialize(Enum.GetValues<RepeatPeriod>().Select(p => Item(p, 1))))!;
         source["schemaVersion"] = 1;
-        foreach (var node in source["events"]!.AsArray()) node!.AsObject().Remove("repeatCount");
+        foreach (var node in source["events"]!.AsArray())
+        {
+            var legacy=node!.AsObject();
+            foreach (var key in new[] { "repeatCount","reminderCount","reminderIntervalMinutes","reminderDurationMinutes","completedReminderDates" }) legacy.Remove(key);
+            legacy["lastRemindedOccurrenceDate"]=null;
+        }
         source["events"]![0]!["recurrence"] = "NONE";
         source["events"]![4]!["recurrence"] = "Yearly";
         source["events"]![1]!["lastRemindedOccurrenceDate"] = "2026-02-04";
@@ -134,7 +140,7 @@ internal static class RepeatChecks
         string original = source.ToJsonString();
         var result = ScheduleJson.Parse(DataUpgrade.ConvertVersion1(original));
         Require(result.Select(i => i.RepeatCount).SequenceEqual(new[] { 1, 2, 2, 2, 100 }), "upgrade assigns approved defaults");
-        Require(result[1].LastRemindedOccurrenceDate is null && result[2].LastRemindedOccurrenceDate == new DateOnly(2026, 2, 7),
+        Require(result[1].CompletedReminderDates.Count == 0 && result[2].CompletedReminderDates.Contains(new DateOnly(2026, 2, 7)),
             "upgrade clears only reminder dates outside the new range");
         for (int i = 0; i < result.Count; i++)
             Require(result[i].Id == source["events"]![i]!["id"]!.GetValue<string>() && result[i].EventName == "finite",
@@ -152,7 +158,7 @@ internal static class RepeatChecks
             Require(File.ReadAllText(path + ".bak") == "existing rolling backup", "existing rolling backup preserved");
             string upgraded = File.ReadAllText(path);
             Require(DataUpgrade.UpgradeFile(path) == 0 && File.ReadAllText(path) == upgraded && Directory.GetFiles(folder, "*.schema-v1-*.bak").Length == 1,
-                "re-running upgrade on version2 changes nothing");
+                "re-running upgrade on version3 changes nothing");
         }
         finally { Directory.Delete(folder, true); }
         Console.WriteLine("PASS: explicit version1 upgrade and backup checks");
@@ -196,18 +202,18 @@ internal static class RepeatChecks
         {
             Require(service.Reload(), "finite fixture loads empty");
             var item = Item(RepeatPeriod.Daily, 5);
-            item.LastRemindedOccurrenceDate = new DateOnly(2026, 2, 3);
+            item.CompletedReminderDates = [new DateOnly(2026, 2, 3)];
             Require(service.Add(item), "finite event with valid reminder saved");
             var shrunk = Item(RepeatPeriod.Daily, 2);
-            Require(service.Update(item, shrunk) && shrunk.LastRemindedOccurrenceDate is null, "shrinking count persists and clears expired reminder record");
+            Require(service.Update(item, shrunk) && shrunk.CompletedReminderDates.Count == 0, "shrinking count persists and clears expired reminder record");
             Require(service.Items.Count == 1 && service.GetForDate(new DateTime(2026, 2, 2)).Count == 0,
                 "expired schedule remains stored but has no later occurrences");
             Require(ReminderService.FindDue(service.Items, new DateTime(2026, 2, 2, 9, 0, 0), out _) is null,
                 "no reminder after finite count is exhausted");
-            shrunk.LastRemindedOccurrenceDate = new DateOnly(2026, 1, 31);
+            shrunk.CompletedReminderDates = [new DateOnly(2026, 1, 31)];
             Require(service.Save(), "valid deduplication record saved");
             var expanded = Item(RepeatPeriod.Daily, 5);
-            Require(service.Update(shrunk, expanded) && expanded.LastRemindedOccurrenceDate == new DateOnly(2026, 1, 31),
+            Require(service.Update(shrunk, expanded) && expanded.CompletedReminderDates.Contains(new DateOnly(2026, 1, 31)),
                 "expanding count preserves still-valid reminder record");
             var reload = new ScheduleService(path);
             Require(reload.Reload() && reload.Items.Single().RepeatCount == 5, "restart preserves finite repeat count");

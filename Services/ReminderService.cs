@@ -14,120 +14,170 @@ public sealed class ReminderService : IDisposable
     private readonly Window _window;
     private readonly Action<bool> _setCalendarFlash;
     private readonly Action<ScheduleItem> _onFire;
-    private readonly AlarmService _alarm = new();
-    private bool _flashDark;
     private readonly Action<string>? _onError;
+    private readonly Action? _onStateChanged;
+    private readonly Func<DateTime> _clock;
+    private readonly bool _effectsEnabled;
+    private readonly AlarmService _alarm = new();
+    private readonly HashSet<(ScheduleItem Item, DateOnly Date)> _observed = [];
+    private readonly HashSet<(ScheduleItem Item, DateOnly Date)> _pendingCompletion = [];
+    private List<ReminderOccurrence> _active = [];
+    private bool _flashDark;
+    private bool _disposed;
 
     public bool IsAlertActive { get; private set; }
+    internal IReadOnlyList<ReminderOccurrence> ActiveReminders => _active;
 
-    public ReminderService(
-        ScheduleService scheduleService,
-        Window window,
-        Action<bool> setCalendarFlash,
-        Action<ScheduleItem> onFire,
-        Action<string>? onError = null)
+    public ReminderService(ScheduleService scheduleService, Window window, Action<bool> setCalendarFlash,
+        Action<ScheduleItem> onFire, Action<string>? onError = null, Action? onStateChanged = null)
+        : this(scheduleService,window,setCalendarFlash,onFire,onError,() => DateTime.Now,true,onStateChanged) { }
+
+    internal ReminderService(ScheduleService scheduleService, Window window, Action<bool> setCalendarFlash,
+        Action<ScheduleItem> onFire, Action<string>? onError, Func<DateTime> clock, bool effectsEnabled,
+        Action? onStateChanged = null)
     {
-        _scheduleService = scheduleService;
-        _window = window;
-        _setCalendarFlash = setCalendarFlash;
-        _onFire = onFire;
-        _onError = onError;
-
-        _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
-        _timer.Tick += OnTick;
-        _timer.Start();
-
-        _flashTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        _flashTimer.Tick += OnFlashTick;
+        _scheduleService=scheduleService; _window=window; _setCalendarFlash=setCalendarFlash;
+        _onFire=onFire; _onError=onError; _onStateChanged=onStateChanged;
+        _clock=clock; _effectsEnabled=effectsEnabled;
+        _timer=new DispatcherTimer(DispatcherPriority.Background) { Interval=TimeSpan.FromSeconds(1) };
+        _timer.Tick+=OnTick;
+        if (effectsEnabled) _timer.Start();
+        _flashTimer=new DispatcherTimer { Interval=TimeSpan.FromMilliseconds(500) };
+        _flashTimer.Tick+=OnFlashTick;
     }
 
-    private void OnTick(object? sender, EventArgs e)
-    {
-        if (!_scheduleService.CanSave || _scheduleService.Items.Count == 0) return;
-        var now = DateTime.Now;
-        var fire = FindDue(_scheduleService.Items.Where(_scheduleService.CanSaveItem).ToList(), now, out DateOnly occurrenceDate);
-        if (fire is null) return;
+    private void OnTick(object? sender, EventArgs e) => ProcessAt(_clock());
 
-        var previous = fire.LastRemindedOccurrenceDate;
-        fire.LastRemindedOccurrenceDate = occurrenceDate;
-        if (!_scheduleService.Save(fire))
+    internal void ProcessAt(DateTime now)
+    {
+        if (_disposed) return;
+        // Refresh may replace instances; carry tracking only to the same ID and reminder rule.
+        foreach (var pending in _pendingCompletion.ToList())
         {
-            fire.LastRemindedOccurrenceDate = previous;
-            _onError?.Invoke("保存提醒记录失败：" + _scheduleService.LastError);
-            return;
+            var current=CurrentItem(pending.Item,pending.Date);
+            if (ReferenceEquals(current,pending.Item)) continue;
+            _pendingCompletion.Remove(pending);
+            if (current is not null) _pendingCompletion.Add((current,pending.Date));
         }
-        _onFire(fire);
-        StartAlert();
+        foreach (var observed in _observed.ToList())
+        {
+            var current=CurrentItem(observed.Item,observed.Date);
+            _observed.Remove(observed);
+            if (current is null) continue;
+            if (now >= ReminderPlan.End(current,observed.Date)) _pendingCompletion.Add((current,observed.Date));
+            else _observed.Add((current,observed.Date));
+        }
+        bool saved=PersistCompletions();
+        var active=ReminderPlan.ActiveAt(_scheduleService.Items.Where(_scheduleService.CanSaveItem),now)
+            .Where(occurrence => !_pendingCompletion.Contains((occurrence.Item,occurrence.Date))).ToList();
+        foreach (var occurrence in active) _observed.Add((occurrence.Item,occurrence.Date));
+        bool changed=!_active.SequenceEqual(active);
+        _active=active;
+        if (_active.Count==0) StopAlert();
+        else
+        {
+            if (!IsAlertActive) StartAlert();
+            if (changed) _onFire(_active[^1].Item);
+        }
+        if (changed || saved) _onStateChanged?.Invoke();
+    }
+
+    private ScheduleItem? CurrentItem(ScheduleItem previous, DateOnly date) =>
+        _scheduleService.Items.Contains(previous) ? previous : _scheduleService.Items.FirstOrDefault(item =>
+            Guid.Parse(item.Id)==Guid.Parse(previous.Id) && ScheduleOccurrence.SameReminderIdentity(previous,item) &&
+            ScheduleOccurrence.IsOnDate(item,date.ToDateTime(TimeOnly.MinValue)));
+
+    private bool PersistCompletions()
+    {
+        bool changed=false;
+        foreach (var group in _pendingCompletion.GroupBy(record => record.Item).ToList())
+        {
+            var item=group.Key;
+            if (!_scheduleService.Items.Contains(item))
+            {
+                foreach (var record in group) _pendingCompletion.Remove(record);
+                continue;
+            }
+            var previous=item.CompletedReminderDates;
+            item.CompletedReminderDates=previous.Concat(group.Select(record => record.Date)).Distinct().Order().ToList();
+            if (_scheduleService.Save(item))
+            {
+                foreach (var record in group) _pendingCompletion.Remove(record);
+                changed=true;
+            }
+            else
+            {
+                item.CompletedReminderDates=previous;
+                _onError?.Invoke("保存提醒完成记录失败："+_scheduleService.LastError);
+            }
+        }
+        return changed;
     }
 
     private void StartAlert()
     {
-        IsAlertActive = true;
-        _flashDark = false;
+        IsAlertActive=true;
+        _flashDark=false;
         _setCalendarFlash(false);
+        if (!_effectsEnabled) return;
         _alarm.Start();
-        if (Application.Current is App app && app.MainWindow == _window) app.RestoreMainWindow();
+        if (Application.Current is App app && app.MainWindow==_window) app.RestoreMainWindow();
         else
         {
-            _window.ShowInTaskbar = true;
+            _window.ShowInTaskbar=true;
             _window.Show();
-            if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
+            if (_window.WindowState==WindowState.Minimized) _window.WindowState=WindowState.Normal;
         }
-        _window.Topmost = true;
+        _window.Topmost=true;
         _window.Activate();
         _flashTimer.Start();
-        WindowTaskbarFlasher.Set(_window, true);
+        WindowTaskbarFlasher.Set(_window,true);
+    }
+
+    private void StopAlert()
+    {
+        if (!IsAlertActive) return;
+        IsAlertActive=false;
+        _flashTimer.Stop();
+        if (_effectsEnabled) _alarm.Stop();
+        _flashDark=false;
+        _setCalendarFlash(false);
+        _window.Topmost=false;
+        if (_effectsEnabled) WindowTaskbarFlasher.Set(_window,false);
     }
 
     public bool DismissAlert()
     {
-        if (!IsAlertActive) return false;
-        IsAlertActive = false;
-        _flashTimer.Stop();
-        _alarm.Stop();
-        _flashDark = false;
-        _setCalendarFlash(false);
-        _window.Topmost = false;
-        WindowTaskbarFlasher.Set(_window, false);
+        if (_disposed || _active.Count==0) return false;
+        // Cancel only occurrences ringing now; waiting occurrences retain their later rounds.
+        foreach (var occurrence in _active) _pendingCompletion.Add((occurrence.Item,occurrence.Date));
+        StopAlert();
+        ProcessAt(_clock());
         return true;
     }
 
     private void OnFlashTick(object? sender, EventArgs e)
     {
-        _flashDark = !_flashDark;
+        _flashDark=!_flashDark;
         _setCalendarFlash(_flashDark);
     }
 
     internal static ScheduleItem? FindDue(IReadOnlyList<ScheduleItem> items, DateTime now, out DateOnly occurrenceDate)
     {
-        occurrenceDate = default;
-        foreach (var item in items)
-        {
-            if (item.EventTime is not TimeOnly time) continue;
-            // The existing three-minute grace window may span midnight; use target dates.
-            var first = now.AddMinutes(item.RemindingMinutes - 3).Date;
-            var last = now.AddMinutes(item.RemindingMinutes).Date;
-            for (var date = first; date <= last; date = date.AddDays(1))
-            {
-                if (item.LastRemindedOccurrenceDate == DateOnly.FromDateTime(date) ||
-                    !ScheduleOccurrence.IsOnDate(item, date)) continue;
-                var reminderTime = date.Add(time.ToTimeSpan()).AddMinutes(-item.RemindingMinutes);
-                if (now >= reminderTime && now <= reminderTime.AddMinutes(3))
-                {
-                    occurrenceDate = DateOnly.FromDateTime(date);
-                    return item;
-                }
-            }
-        }
-        return null;
+        var occurrence=ReminderPlan.ActiveAt(items,now).FirstOrDefault();
+        occurrenceDate=occurrence?.Date ?? default;
+        return occurrence?.Item;
     }
 
     public void Dispose()
     {
-        DismissAlert();
-        _timer.Stop();
-        _timer.Tick -= OnTick;
-        _flashTimer.Tick -= OnFlashTick;
+        if (_disposed) return;
+        _disposed=true;
+        // Exit is not acknowledgement: future rounds are reconstructed on the next launch.
+        StopAlert();
+        _timer.Stop(); _timer.Tick-=OnTick;
+        _flashTimer.Stop(); _flashTimer.Tick-=OnFlashTick;
+        _active.Clear(); _observed.Clear(); _pendingCompletion.Clear();
     }
 }
 

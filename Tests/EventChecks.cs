@@ -47,23 +47,23 @@ internal static class EventChecks
     {
         string empty = ScheduleJson.Serialize([]);
         using var document = JsonDocument.Parse(empty);
-        Check(document.RootElement.GetProperty("schemaVersion").GetInt32() == 2 &&
+        Check(document.RootElement.GetProperty("schemaVersion").GetInt32() == 3 &&
             document.RootElement.GetProperty("events").GetArrayLength() == 0, "standard versioned empty JSON");
         var item = Event(2026, 9, 17, RepeatPeriod.Monthly, CalendarKind.Lunar);
-        item.LastRemindedOccurrenceDate = DateOnly.FromDateTime(item.StartDate.ToSolar(item.Calendar));
+        item.CompletedReminderDates = [DateOnly.FromDateTime(item.StartDate.ToSolar(item.Calendar))];
         string text = ScheduleJson.Serialize([item]);
         var parsed = ScheduleJson.Parse(text).Single();
         Check(parsed.StartDate == item.StartDate && parsed.EventName == item.EventName && parsed.Note == item.Note &&
             parsed.Calendar == CalendarKind.Lunar && parsed.Recurrence == RepeatPeriod.Monthly && parsed.EventTime == item.EventTime &&
-            parsed.LastRemindedOccurrenceDate == item.LastRemindedOccurrenceDate && parsed.Id == item.Id, "JSON full round trip including escaping and reminder date");
+            parsed.CompletedReminderDates.SequenceEqual(item.CompletedReminderDates) && parsed.Id == item.Id, "JSON full round trip including escaping and reminder date");
         Check(text.Contains("\"time\": \"09:00\"") && text.Contains("\"calendar\": \"lunar\""), "JSON uses HH:mm and named calendar");
         Rejected(() => ScheduleJson.Parse("[]"), "old array format rejected");
-        Rejected(() => ScheduleJson.Parse(empty.Replace(": 2", ": 3")), "unknown schema rejected");
-        Rejected(() => ScheduleJson.Parse(empty.Replace(": 2", ": null")), "null schema version rejected clearly");
+        Rejected(() => ScheduleJson.Parse(empty.Replace(": 3", ": 4")), "unknown schema rejected");
+        Rejected(() => ScheduleJson.Parse(empty.Replace(": 3", ": null")), "null schema version rejected clearly");
         Rejected(() => ScheduleJson.Parse("{"), "malformed JSON rejected");
-        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":2,\"events\":null}"), "null event list rejected");
-        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":2,\"events\":[null]}"), "null event rejected");
-        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":2,\"events\":[{}]}"), "missing required fields rejected");
+        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":3,\"events\":null}"), "null event list rejected");
+        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":3,\"events\":[null]}"), "null event rejected");
+        Rejected(() => ScheduleJson.Parse("{\"schemaVersion\":3,\"events\":[{}]}"), "missing required fields rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"monthly\"", "\"sometimes\"")), "unknown recurrence rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"monthly\"", "3")), "numeric recurrence rejected");
         Rejected(() => ScheduleJson.Parse(text.Replace("\"09:00\"", "\"9:00\"")), "noncanonical time rejected");
@@ -73,7 +73,7 @@ internal static class EventChecks
         Rejected(() => ScheduleJson.Serialize([invalid]), "reminder outside UI range rejected");
         invalid = Event(); invalid.StartDate = invalid.StartDate with { IsLeapMonth = true };
         Rejected(() => ScheduleJson.Serialize([invalid]), "solar leap-month flag rejected");
-        invalid = Event(); invalid.LastRemindedOccurrenceDate = new DateOnly(2026, 10, 25);
+        invalid = Event(); invalid.CompletedReminderDates = [new DateOnly(2026, 10, 25)];
         Rejected(() => ScheduleJson.Serialize([invalid]), "non-occurrence reminder date rejected");
         // A valid lunar February 30 must not be constructed as Gregorian February 30.
         int lunarYear = Enumerable.Range(1901, 200).First(y => Lunar.DaysInLunarMonth(y, 2) == 30);
@@ -140,19 +140,19 @@ internal static class EventChecks
         var item = Event(recurrence: RepeatPeriod.Daily);
         var now = new DateTime(2026, 10, 26, 8, 45, 0);
         Check(ReminderService.FindDue([item], now, out var occurrence) == item && occurrence == new DateOnly(2026, 10, 26), "reminder identifies occurrence date");
-        item.LastRemindedOccurrenceDate = occurrence;
+        item.CompletedReminderDates = [occurrence];
         Check(ReminderService.FindDue([item], now.AddSeconds(1), out _) is null, "same occurrence not reminded twice");
         Check(ReminderService.FindDue([item], now.AddDays(1), out occurrence) == item && occurrence == new DateOnly(2026, 10, 27), "daily reminders repeat within same year");
         item.EventTime = new TimeOnly(0, 5);
         Check(ReminderService.FindDue([item], new DateTime(2026, 12, 31, 23, 50, 0), out occurrence) == item &&
             occurrence == new DateOnly(2027, 1, 1), "early reminder across midnight/year records target day");
         item = Event(2026, 10, 26);
-        item.EventTime = new TimeOnly(23, 59); item.RemindingMinutes = 0;
+        item.EventTime = new TimeOnly(23, 59); item.RemindingMinutes = 0; item.ReminderDurationMinutes = 3; item.ReminderCount = 1;
         Check(ReminderService.FindDue([item], new DateTime(2026, 10, 27, 0, 1, 0), out occurrence) == item &&
-            occurrence == new DateOnly(2026, 10, 26), "three-minute grace crosses midnight");
+            occurrence == new DateOnly(2026, 10, 26), "configured reminder duration crosses midnight");
         Check(ReminderService.FindDue([item], new DateTime(2026, 10, 27, 0, 3, 0), out _) is null, "expired reminders not replayed");
         var other = Event(2026, 10, 26); other.EventTime = item.EventTime; other.RemindingMinutes = 0;
-        item.LastRemindedOccurrenceDate = new DateOnly(2026, 10, 26);
+        item.CompletedReminderDates = [new DateOnly(2026, 10, 26)];
         Check(ReminderService.FindDue([item, other], new DateTime(2026, 10, 26, 23, 59, 0), out _) == other, "one event reminder does not suppress another");
     }
 
@@ -168,16 +168,16 @@ internal static class EventChecks
             var item = Event(recurrence: RepeatPeriod.Daily);
             Check(service.Add(item) && File.Exists(file), "add saves standard JSON");
             string id = item.Id;
-            item.LastRemindedOccurrenceDate = new DateOnly(2026, 10, 26);
+            item.CompletedReminderDates = [new DateOnly(2026, 10, 26)];
             Check(service.Save() && File.Exists(file + ".bak"), "save retains backup and reminder state");
             var reloaded = new ScheduleService(file);
             Check(reloaded.Reload() && reloaded.Items.Single().Id == id &&
-                reloaded.Items.Single().LastRemindedOccurrenceDate == new DateOnly(2026, 10, 26), "restart preserves ID and reminder deduplication");
+                reloaded.Items.Single().CompletedReminderDates.Contains(new DateOnly(2026, 10, 26)), "restart preserves ID and reminder deduplication");
             Check(ReminderService.FindDue(reloaded.Items, new DateTime(2026, 10, 26, 8, 45, 0), out _) is null, "restart does not repeat recorded reminder");
             var replacement = Event(recurrence: RepeatPeriod.Daily); replacement.EventName = "renamed";
-            Check(service.Update(item, replacement) && replacement.Id == id && replacement.LastRemindedOccurrenceDate == item.LastRemindedOccurrenceDate, "metadata edit preserves identity and reminder");
+            Check(service.Update(item, replacement) && replacement.Id == id && replacement.CompletedReminderDates.SequenceEqual(item.CompletedReminderDates), "metadata edit preserves identity and reminder");
             var changed = Event(recurrence: RepeatPeriod.Weekly);
-            Check(service.Update(replacement, changed) && changed.LastRemindedOccurrenceDate is null, "rule edit resets reminder identity");
+            Check(service.Update(replacement, changed) && changed.CompletedReminderDates.Count == 0, "rule edit resets reminder identity");
             var invalid = Event(); invalid.EventName = "";
             string before = File.ReadAllText(file);
             Check(!service.Add(invalid) && service.Items.Count == 1 && File.ReadAllText(file) == before, "invalid save rolls back without overwriting");
@@ -203,13 +203,13 @@ internal static class EventChecks
             Check(service.Add(due), "due fixture saved");
             var owner = new Window();
             int fires = 0, errors = 0;
-            using (var reminder = new ReminderService(service, owner, _ => { }, _ => fires++, _ => errors++))
+            using (var reminder = new ReminderService(service, owner, _ => { }, _ => fires++, _ => errors++, () => now, false))
             {
-                typeof(ReminderService).GetProperty("IsAlertActive")!.SetValue(reminder, true);
+                reminder.ProcessAt(now);
                 File.WriteAllText(file, "[]");
-                Invoke(reminder, "OnTick", null, EventArgs.Empty);
-                Check(fires == 0 && errors == 1 && due.LastRemindedOccurrenceDate is null,
-                    "active alert does not suppress other reminders; failed save reports and rolls back");
+                reminder.DismissAlert();
+                Check(fires == 1 && errors == 1 && due.CompletedReminderDates.Count == 0 && !reminder.IsAlertActive,
+                    "failed acknowledgement save rolls back durable state and silences local alarm");
             }
             owner.Close();
         }
@@ -257,14 +257,14 @@ internal static class EventChecks
         }
         finally { window.Close(); }
         var item = Event(2025, 6, 10, RepeatPeriod.Yearly, CalendarKind.Lunar, true);
-        item.LastRemindedOccurrenceDate = DateOnly.FromDateTime(item.StartDate.ToSolar(item.Calendar));
+        item.CompletedReminderDates = [DateOnly.FromDateTime(item.StartDate.ToSolar(item.Calendar))];
         var edit = Editor(DateTime.Today, item);
         try
         {
             Check(OptionText(Find<ComboBox>(edit, "MonthCombo").SelectedItem) == "闰六", "existing leap month retained in editor");
-            Check(Build(edit).Id == item.Id && Build(edit).LastRemindedOccurrenceDate == item.LastRemindedOccurrenceDate, "editor retains ID and unchanged reminder");
+            Check(Build(edit).Id == item.Id && Build(edit).CompletedReminderDates.SequenceEqual(item.CompletedReminderDates), "editor retains ID and unchanged reminder");
             Find<TextBox>(edit, "RemindMinutesTextBox").Text = "10";
-            Check(Build(edit).LastRemindedOccurrenceDate is null, "changing reminder offset resets record");
+            Check(Build(edit).CompletedReminderDates.Count == 0, "changing reminder offset resets record");
             Find<ComboBox>(edit, "YearCombo").SelectedValue = 2026;
             Check(OptionText(Find<ComboBox>(edit, "MonthCombo").SelectedItem) == "六" && !Build(edit).StartDate.IsLeapMonth, "changing to non-leap year selects ordinary month");
             Render(edit, "editor-edit");

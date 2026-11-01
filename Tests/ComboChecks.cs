@@ -68,7 +68,7 @@ internal static class ComboChecks
                 double gap = viewport.ActualHeight - lastBounds.Bottom;
                 Console.WriteLine($"DIAG: {Names[i]} count={combo.Items.Count}, extent={scroll.ExtentHeight:F2}, viewport={scroll.ViewportHeight:F2}, bottomGap={gap:F2}, last={Text(combo.Items[^1])}");
                 Require(gap <= 1, Names[i] + " has no empty area after its last option");
-                Require(viewport.ActualHeight <= 240.5, "at most eight 30 DIP rows visible");
+                Require(viewport.ActualHeight <= 180.5, "at most six 30 DIP rows visible");
                 combo.IsDropDownOpen = false; Pump();
             }
         }

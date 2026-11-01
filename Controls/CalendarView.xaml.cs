@@ -34,11 +34,8 @@ public sealed class CalendarDayViewModel : INotifyPropertyChanged
     internal void RefreshIndicator(DateTime now)
     {
         var occurrenceDate = DateOnly.FromDateTime(Date);
-        var pending = Schedules.Where(item => item.LastRemindedOccurrenceDate != occurrenceDate);
-        var next = pending.FirstOrDefault(item => item.EventTime is TimeOnly time &&
-            (Date != now.Date || Date.Add(time.ToTimeSpan()) >= now ||
-             Date.Add(time.ToTimeSpan()).AddMinutes(3 - item.RemindingMinutes) >= now))
-            ?? pending.FirstOrDefault(item => !item.HasTime);
+        var pending = Schedules.Where(item => !ReminderPlan.IsComplete(item,occurrenceDate,now));
+        var next = pending.FirstOrDefault(item => item.HasTime) ?? pending.FirstOrDefault();
         var indicator = (next ?? Schedules.LastOrDefault())?.Recurrence;
         if (_indicatorRecurrence == indicator) return;
         _indicatorRecurrence = indicator;

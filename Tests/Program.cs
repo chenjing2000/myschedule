@@ -13,7 +13,7 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        if (args.Length == 2 && args[0] == "--upgrade-v1") return DataUpgrade.UpgradeFile(args[1]);
+        if (args.Length == 2 && (args[0] == "--upgrade-v1" || args[0] == "--upgrade-v2")) return DataUpgrade.UpgradeFile(args[1]);
         if (args.Contains("--startup-activation-host"))
         {
             var activationApp = new OneSchedule.App();
@@ -49,6 +49,9 @@ internal static class Program
         var window = new MainWindow();
         try
         {
+            DialogPolishChecks.Run();
+            ReminderSeriesChecks.Run();
+            ReminderEditorChecks.Run();
             RuntimeChecks.Run();
             StorageSafetyChecks.Run();
             NoteChecks.Run();

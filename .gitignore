@@ -12,3 +12,6 @@ data/
 # Local application settings
 OneSchedule.settings.json
 OneSchedule.settings.json.*.tmp
+
+# Local, accumulated notes for the next authorized GitHub submission
+/pending-changes.log

@@ -28,7 +28,7 @@ internal static class MultiFileChecks
             var replacement=Item("renamed");
             Require(service.Update(z,replacement) && File.ReadAllText(first)==firstText && ScheduleJson.Parse(File.ReadAllText(last)).Single().EventName=="renamed","edit writes only source file");
             Require(File.Exists(last+".bak"),"source edit creates source backup");
-            replacement.LastRemindedOccurrenceDate=new DateOnly(2026,10,27);
+            replacement.CompletedReminderDates = [new DateOnly(2026,10,27)];
             Require(service.Save(replacement) && File.ReadAllText(first)==firstText,"reminder save targets source file");
             Require(service.Delete(replacement) && ScheduleJson.Parse(File.ReadAllText(last)).Count==0,"delete writes source file");
             File.WriteAllText(last,"broken");

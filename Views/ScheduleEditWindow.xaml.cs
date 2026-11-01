@@ -21,8 +21,8 @@ public partial class ScheduleEditWindow : Window
         _defaultDate = defaultDate.Date;
         _editing = existing;
         Title = existing is null ? "新增日程" : "编辑日程";
-        DataObject.AddPastingHandler(RemindMinutesTextBox, IntegerTextBox_Pasting);
-        DataObject.AddPastingHandler(RepeatCountTextBox, IntegerTextBox_Pasting);
+        foreach (var box in new[] { RemindMinutesTextBox, ReminderCountTextBox, ReminderIntervalTextBox, ReminderDurationTextBox, RepeatCountTextBox })
+            DataObject.AddPastingHandler(box, IntegerTextBox_Pasting);
         Loaded += ScheduleEditWindow_Loaded;
     }
 
@@ -46,7 +46,10 @@ public partial class ScheduleEditWindow : Window
         MinuteCombo.SelectedItem = TwoDigits(time.Minute);
         EventNameTextBox.Text = _editing?.EventName ?? "";
         NoteTextBox.Text = _editing?.Note ?? "";
-        RemindMinutesTextBox.Text = (_editing?.RemindingMinutes ?? 0).ToString();
+        RemindMinutesTextBox.Text = (_editing?.RemindingMinutes ?? 30).ToString();
+        ReminderCountTextBox.Text = (_editing?.ReminderCount ?? 3).ToString();
+        ReminderIntervalTextBox.Text = (_editing?.ReminderIntervalMinutes ?? 3).ToString();
+        ReminderDurationTextBox.Text = (_editing?.ReminderDurationMinutes ?? 1).ToString();
         RefreshDateOptions();
     }
 
@@ -132,9 +135,16 @@ public partial class ScheduleEditWindow : Window
 
     private void RemindMinutesTextBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        RemindMinutesTextBox.Focus();
-        RemindMinutesTextBox.Select(RemindMinutesTextBox.Text.Length, 0);
+        var box=(TextBox)sender;
+        box.Focus();
+        box.Select(box.Text.Length,0);
         e.Handled = true;
+    }
+
+    private void ReminderCountTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (ReminderIntervalTextBox is not null)
+            ReminderIntervalTextBox.IsEnabled=!int.TryParse(ReminderCountTextBox.Text,NumberStyles.None,CultureInfo.InvariantCulture,out int count) || count!=1;
     }
 
     private static bool IsAsciiDigits(string text) =>
@@ -164,8 +174,12 @@ public partial class ScheduleEditWindow : Window
         { error = "请选择完整时间。"; return false; }
         if (!Enum.TryParse<RepeatPeriod>(RecurrenceCombo.SelectedValue as string, out var recurrence))
         { error = "请选择周期。"; return false; }
-        if (!int.TryParse(RemindMinutesTextBox.Text.Trim(), out int reminder) || reminder is < 0 or > 99)
+        if (!int.TryParse(RemindMinutesTextBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out int reminder) || reminder is < 0 or > 99)
         { error = "提前提醒分钟数必须是0～99的整数。"; return false; }
+        if (!int.TryParse(ReminderCountTextBox.Text,NumberStyles.None,CultureInfo.InvariantCulture,out int reminderCount) ||
+            !int.TryParse(ReminderIntervalTextBox.Text,NumberStyles.None,CultureInfo.InvariantCulture,out int reminderInterval) ||
+            !int.TryParse(ReminderDurationTextBox.Text,NumberStyles.None,CultureInfo.InvariantCulture,out int reminderDuration))
+        { error="提醒次数、间隔和时长必须是1～99的整数。"; return false; }
         int repeatCount = 1;
         if (recurrence != RepeatPeriod.None && (!int.TryParse(RepeatCountTextBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out repeatCount) || repeatCount is < 1 or > 999))
         { error = "重复次数必须是1～999的整数。"; return false; }
@@ -174,10 +188,10 @@ public partial class ScheduleEditWindow : Window
             RepeatCount = repeatCount,
             Id = _editing?.Id ?? Guid.NewGuid().ToString(), Calendar = _calendar, StartDate = _date,
             Recurrence = recurrence, EventTime = new TimeOnly(int.Parse(hour), int.Parse(minute)),
-            EventName = EventNameTextBox.Text.Trim(), Note = NoteTextBox.Text.Trim(), RemindingMinutes = reminder
+            EventName = EventNameTextBox.Text.Trim(), Note = NoteTextBox.Text.Trim(), RemindingMinutes = reminder,
+            ReminderCount=reminderCount, ReminderIntervalMinutes=reminderInterval, ReminderDurationMinutes=reminderDuration
         };
-        if (_editing is not null && ScheduleOccurrence.SameReminderIdentity(_editing, result))
-            result.LastRemindedOccurrenceDate = _editing.LastRemindedOccurrenceDate;
+        if (_editing is not null) ScheduleOccurrence.CopyReminderState(_editing,result);
         try { ScheduleJson.Validate(result); return true; }
         catch (ArgumentException ex) { error = "日期无效：" + ex.Message; return false; }
         catch (FormatException ex) { error = ex.Message; return false; }

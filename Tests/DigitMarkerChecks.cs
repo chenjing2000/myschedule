@@ -50,7 +50,7 @@ internal static class DigitMarkerChecks
             var marker=Children<Polygon>(view).Single(p=>p.DataContext is CalendarDayViewModel day && day.Date==date);
             Require(marker.Visibility==Visibility.Visible && ((SolidColorBrush)marker.Fill).Color==(Color)ColorConverter.ConvertFromString(colors[i]),"marker color: "+periods[i]);
         }
-        view.Rebuild(2026,10,[Item(RepeatPeriod.Yearly,16),Item(RepeatPeriod.Weekly,8)]); Layout(view);
+        view.Rebuild(2026,10,[Item(RepeatPeriod.Yearly,16),Item(RepeatPeriod.Weekly,8)]); view.RefreshIndicators(date.AddHours(7)); Layout(view);
         var mixed=Children<Polygon>(view).Single(p=>p.DataContext is CalendarDayViewModel day && day.Date==date);
         Require(((SolidColorBrush)mixed.Fill).Color==(Color)ColorConverter.ConvertFromString(colors[2]),"earliest event controls marker");
         Require(((CalendarDayViewModel)mixed.DataContext).TooltipText!.Contains("Yearly"),"tooltip retains other events");

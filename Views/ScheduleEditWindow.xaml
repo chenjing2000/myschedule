@@ -6,6 +6,7 @@
     <Window.Resources>
         <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="Height" Value="30"/>
+            <Setter Property="MaxDropDownHeight" Value="180"/>
             <Setter Property="Width" Value="42"/>
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -74,13 +75,32 @@
         <TextBox x:Name="EventNameTextBox" HorizontalAlignment="Left" Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
         <TextBlock Grid.Row="4" Text="备注" VerticalAlignment="Center" Margin="0,0,6,8"/>
         <TextBox x:Name="NoteTextBox" HorizontalAlignment="Left" Grid.Row="4" Grid.Column="1" Margin="0,0,0,8" Style="{StaticResource InputStyle}"/>
-        <TextBlock Grid.Row="5" Text="提前提醒" VerticalAlignment="Center" Margin="0,0,6,8"/>
-        <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBox x:Name="RemindMinutesTextBox" TextAlignment="Center" Width="42" Text="0" MaxLength="2"
-                     PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown"
-                     Style="{StaticResource NumericInputStyle}"/>
-            <TextBlock Text="分钟（0 = 准点提醒）" VerticalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" Margin="6,0,0,0"/>
-        </StackPanel>
+        <Border x:Name="ReminderSettingsBorder" Grid.Row="5" Grid.ColumnSpan="2" Margin="0,0,0,8"
+                Background="#F7F8FA" BorderBrush="#D8DCE3" BorderThickness="1" CornerRadius="8" Padding="10">
+            <Grid TextElement.Foreground="{StaticResource TextPrimaryBrush}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <TextBlock Text="提醒设置" Grid.ColumnSpan="2" Margin="0,0,0,8"/>
+                <TextBlock Grid.Row="1" Text="提前提醒" VerticalAlignment="Center" Margin="0,0,4,6"/>
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBox x:Name="RemindMinutesTextBox" Width="42" Text="30" MaxLength="2" TextAlignment="Center"
+                             PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown" Style="{StaticResource NumericInputStyle}"/>
+                    <TextBlock VerticalAlignment="Center" Margin="6,0,0,0"><Run Text="分钟"/><Run Text="（0＝准点提醒）" Foreground="{StaticResource TextSecondaryBrush}"/></TextBlock>
+                </StackPanel>
+                <StackPanel x:Name="ReminderSequenceRow" Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal">
+                    <TextBlock Text="提醒次数" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                    <TextBox x:Name="ReminderCountTextBox" Width="30" Text="3" MaxLength="2" TextAlignment="Center"
+                             TextChanged="ReminderCountTextBox_TextChanged" PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown" Style="{StaticResource NumericInputStyle}"/>
+                    <TextBlock Text="次，间隔" VerticalAlignment="Center" Margin="2,0"/>
+                    <TextBox x:Name="ReminderIntervalTextBox" Width="30" Text="3" MaxLength="2" TextAlignment="Center"
+                             PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown" Style="{StaticResource NumericInputStyle}"/>
+                    <TextBlock Text="分钟，时长" VerticalAlignment="Center" Margin="2,0"/>
+                    <TextBox x:Name="ReminderDurationTextBox" Width="30" Text="1" MaxLength="2" TextAlignment="Center"
+                             PreviewMouseLeftButtonDown="RemindMinutesTextBox_PreviewMouseLeftButtonDown" Style="{StaticResource NumericInputStyle}"/>
+                    <TextBlock Text="分钟" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
         <TextBlock x:Name="ValidationText" Grid.Row="6" Grid.ColumnSpan="2" Foreground="#C93B3B" TextWrapping="Wrap" VerticalAlignment="Top">
             <TextBlock.Style>
                 <Style TargetType="TextBlock">

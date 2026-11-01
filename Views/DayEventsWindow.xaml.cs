@@ -37,20 +37,19 @@ public partial class DayEventsWindow : Window
         catch { return $"{date:yyyy年M月d日} {weekday}"; }
     }
 
-    private void RefreshList(int preferredIndex = 0)
+    private void RefreshList()
     {
         _dayItems = _scheduleService.GetForDate(_date);
         ScheduleListBox.ItemsSource = null;
         ScheduleListBox.ItemsSource = _dayItems;
-        DeleteButton.IsEnabled = _dayItems.Count > 0;
-        if (_dayItems.Count > 0)
-            ScheduleListBox.SelectedIndex = Math.Clamp(preferredIndex, 0, _dayItems.Count - 1);
+        ScheduleListBox.SelectedIndex = -1;
+        DeleteButton.IsEnabled = false;
     }
 
     private void AddButton_Click(object sender, RoutedEventArgs e)
     {
         if (ScheduleEditWindow.ShowEditor(this, _date, null) is { } item)
-            ApplyChange(() => _scheduleService.Add(item), _dayItems.Count);
+            ApplyChange(() => _scheduleService.Add(item));
     }
 
     private void ScheduleListBox_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -70,17 +69,16 @@ public partial class DayEventsWindow : Window
     private void EditItem(ScheduleItem item)
     {
         if (ScheduleEditWindow.ShowEditor(this, _date, item) is not { } updated) return;
-        int index = Math.Max(0, _dayItems.IndexOf(item));
-        ApplyChange(() => _scheduleService.Update(item, updated), index);
+        ApplyChange(() => _scheduleService.Update(item, updated));
     }
 
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
         if (ScheduleListBox.SelectedItem is not ScheduleItem item) return;
-        ApplyChange(() => _scheduleService.Delete(item), Math.Max(0, ScheduleListBox.SelectedIndex - 1));
+        ApplyChange(() => _scheduleService.Delete(item));
     }
 
-    private void ApplyChange(Func<bool> change, int preferredIndex)
+    private void ApplyChange(Func<bool> change)
     {
         if (!change())
         {
@@ -89,8 +87,23 @@ public partial class DayEventsWindow : Window
         }
 
         _changed = true;
-        RefreshList(preferredIndex);
+        RefreshList();
     }
+
+    private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source) return;
+        // The command needs the selected target until its Click handler executes.
+        for (var current=source; current is not null;
+             current=current is Visual ? VisualTreeHelper.GetParent(current) : LogicalTreeHelper.GetParent(current))
+            if (current==DeleteButton && e.ChangedButton==MouseButton.Left) return;
+        if (ItemsControl.ContainerFromElement(ScheduleListBox,source) is ListBoxItem row &&
+            ReferenceEquals(row.Content,ScheduleListBox.SelectedItem)) return;
+        ScheduleListBox.UnselectAll();
+        Focus();
+    }
+
+    private void Window_Deactivated(object? sender, EventArgs e) => ScheduleListBox.UnselectAll();
 
     private void ScheduleListBox_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         DeleteButton.IsEnabled = ScheduleListBox.SelectedItem is not null;
