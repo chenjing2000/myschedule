@@ -134,6 +134,15 @@ internal static class SettingsChecks
                 "menu initially displays default-on checkbox without an error");
             Require(checkbox.StaysOpenOnClick && menu.IsOpen, "toggle keeps menu open");
             Require(HasRoundedBorder(checkbox), "settings checkbox renders a custom rounded border");
+            var label = ((StackPanel)checkbox.Header).Children.OfType<TextBlock>().First();
+            var box = (Border)checkbox.Template.FindName("Box", checkbox);
+            var labelBounds = label.TransformToAncestor(checkbox).TransformBounds(new Rect(label.RenderSize));
+            var boxBounds = box.TransformToAncestor(checkbox).TransformBounds(new Rect(box.RenderSize));
+            Require(Math.Abs(boxBounds.Left - labelBounds.Right - 6) < .1,
+                "startup label and checkbox have exactly 6 DIP spacing");
+            Require(double.IsNaN(menu.Width) && menu.ActualWidth < 160,
+                "normal settings menu fits its content instead of retaining the old fixed width");
+
             checkbox.IsChecked = false;
             checkbox.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             var reopened = new SettingsService(path, _ => { });
@@ -145,6 +154,10 @@ internal static class SettingsChecks
             Require(checkbox.IsChecked == false && !settings.StartWithWindows &&
                 error.Visibility == Visibility.Visible && error.Text.Contains("simulated UI registration failure"),
                 "failed checkbox toggle rolls back the control and displays the registration error");
+            menu.UpdateLayout();
+            var errorBounds = error.TransformToAncestor(menu).TransformBounds(new Rect(error.RenderSize));
+            Require(error.TextWrapping == TextWrapping.Wrap && errorBounds.Left >= 0 && errorBounds.Right <= menu.ActualWidth,
+                "registration error wraps within the compact menu");
             reopened = new SettingsService(path, _ => { });
             Require(reopened.Load() && !reopened.StartWithWindows, "failed UI toggle preserves persisted disabled startup");
             rejectEnable = false;

@@ -46,6 +46,12 @@ internal static class Program
         {
             Source = new Uri("/OneSchedule;component/Resources/Theme.xaml", UriKind.Relative)
         });
+        if (args.Contains("--settings-menu-checks"))
+        {
+            try { SettingsChecks.Run(); return 0; }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+            finally { app.Shutdown(); }
+        }
         if (args.Contains("--reminder-editor-checks"))
         {
             try
