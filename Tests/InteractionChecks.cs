@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -232,8 +232,10 @@ internal static class InteractionChecks
             "editor controls have integer DIP widths");
         Require(Children<TextBlock>(root).Any(t => t.Text == "备注") && !Children<TextBlock>(root).Any(t => t.Text == "地点"),
             "new and edit dialogs use the remarks label");
-        var unitLabels = Children<TextBlock>(root).Where(t => new[] { "年", "月", "日", "时", "分" }.Contains(t.Text));
-        Require(unitLabels.All(t => t.Width == 22), "date and time unit slots share 22 DIP width");
+        var unitLabels = Children<TextBlock>(root).Where(t =>
+            t.Parent is StackPanel row && ReferenceEquals(row.Parent, root) && Grid.GetRow(row) is 1 or 2 &&
+            new[] { "年", "月", "日", "时", "分" }.Contains(t.Text)).ToArray();
+        Require(unitLabels.Length == 5 && unitLabels.All(t => t.Width == 22), "date and time unit slots share 22 DIP width");
         Require(Children<TextBlock>(root).Where(t => t.Text is "周期" or "重复").All(t => t.Width == 36), "period and repeat label slots match");
         if (Find<TextBlock>(editor, "ValidationText").Visibility == Visibility.Collapsed)
         {

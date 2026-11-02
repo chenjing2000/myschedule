@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -90,7 +90,10 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (Application.Current is App app) SettingsWindow.ShowSettings(this, app.Settings);
+        if (Application.Current is not App app) return;
+        if (SettingsButton.ContextMenu is not SettingsMenu)
+            SettingsButton.ContextMenu = new SettingsMenu(app.Settings) { PlacementTarget = SettingsButton };
+        SettingsButton.ContextMenu.IsOpen = true;
     }
 
     private void Calendar_DayInvoked(object? sender, CalendarDayEventArgs e)
@@ -299,6 +302,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        if (SettingsButton.ContextMenu is { } menu) menu.IsOpen = false;
         _dateTimer.Stop();
         _dateTimer.Tick -= DateTimer_Tick;
         _reminderService?.Dispose();

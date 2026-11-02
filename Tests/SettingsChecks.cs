@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Input;
 using OneSchedule;
 
 internal static class SettingsChecks
@@ -62,7 +63,7 @@ internal static class SettingsChecks
                 "external malformed edit is never overwritten by a toggle");
             ConcurrentWriteChecks(directory);
             UiChecks(directory);
-            Console.WriteLine("PASS: settings persistence, isolated startup, and settings window checks");
+            Console.WriteLine("PASS: settings persistence, isolated startup, and settings menu checks");
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -108,38 +109,67 @@ internal static class SettingsChecks
         {
             if (rejectEnable && enabled) throw new IOException("simulated UI registration failure");
         });
-        Require(settings.Load(), "settings window default fixture loads");
-        var window = (SettingsWindow)Activator.CreateInstance(typeof(SettingsWindow),
+        Require(settings.Load(), "settings menu default fixture loads");
+        var menuType = typeof(MainWindow).Assembly.GetType("OneSchedule.SettingsMenu");
+        Require(menuType is not null, "gear settings must be a menu instead of a window");
+        var menu = (ContextMenu)Activator.CreateInstance(menuType!,
             BindingFlags.Instance | BindingFlags.NonPublic, null, [settings], null)!;
+        var window = new Window { Width = 380, Height = 240, ShowActivated = false, Opacity = 0 };
         try
         {
-            window.Width = 380;
-            window.Opacity = 0;
-            window.ShowActivated = false;
             window.Show();
+            window.Activate();
+            TrayMenuChecks.Pump();
             window.UpdateLayout();
-            var checkbox = window.FindName("StartupCheckBox") as CheckBox
+            menu.PlacementTarget = window;
+            menu.IsOpen = true;
+            TrayMenuChecks.Pump();
+            menu.UpdateLayout();
+            Require(menu.Items.Count == 1 && menu.Placement == PlacementMode.Bottom, "single-item menu opens below its target");
+            var checkbox = menu.FindName("StartupMenuItem") as MenuItem
                 ?? throw new Exception("Settings checkbox missing");
-            var error = window.FindName("ErrorText") as TextBlock
+            var error = menu.FindName("ErrorText") as TextBlock
                 ?? throw new Exception("Settings error text missing");
             Require(checkbox.IsChecked == true && error.Visibility == Visibility.Collapsed,
-                "window initially displays default-on checkbox without an error");
+                "menu initially displays default-on checkbox without an error");
+            Require(checkbox.StaysOpenOnClick && menu.IsOpen, "toggle keeps menu open");
             Require(HasRoundedBorder(checkbox), "settings checkbox renders a custom rounded border");
             checkbox.IsChecked = false;
-            checkbox.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            checkbox.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             var reopened = new SettingsService(path, _ => { });
             Require(!settings.StartWithWindows && checkbox.IsChecked == false && reopened.Load() && !reopened.StartWithWindows,
                 "checkbox click immediately persists disabled startup");
             rejectEnable = true;
             checkbox.IsChecked = true;
-            checkbox.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            checkbox.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
             Require(checkbox.IsChecked == false && !settings.StartWithWindows &&
                 error.Visibility == Visibility.Visible && error.Text.Contains("simulated UI registration failure"),
                 "failed checkbox toggle rolls back the control and displays the registration error");
             reopened = new SettingsService(path, _ => { });
             Require(reopened.Load() && !reopened.StartWithWindows, "failed UI toggle preserves persisted disabled startup");
+            rejectEnable = false;
+            menu.IsOpen = false;
+            window.Activate();
+            TrayMenuChecks.Pump();
+            menu.IsOpen = true;
+            TrayMenuChecks.Pump();
+            checkbox.Focus();
+            TrayMenuChecks.Press(checkbox, Key.Enter);
+            TrayMenuChecks.Pump();
+            Require(menu.IsOpen && settings.StartWithWindows && checkbox.IsChecked,
+                "keyboard Enter toggles startup and keeps the menu open");
+            TrayMenuChecks.Press(menu, Key.Escape);
+            TrayMenuChecks.Pump();
+            Require(!menu.IsOpen, "Escape dismisses settings menu");
+            TrayMenuChecks.OutsideClick(() => menu.IsOpen = true, menu);
+            Require(!menu.IsOpen, "actual outside click dismisses settings menu");
+            menu.IsOpen = true;
+            TrayMenuChecks.Pump();
+            Require(checkbox.IsChecked && error.Visibility == Visibility.Collapsed,
+                "reopened menu shows saved state and clears obsolete errors");
+
         }
-        finally { window.Close(); }
+        finally { menu.IsOpen = false; window.Close(); }
     }
 
     private static bool HasRoundedBorder(DependencyObject parent)

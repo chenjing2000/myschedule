@@ -8,6 +8,11 @@ internal static class ReminderEditorChecks
 {
     public static void Run()
     {
+        EditorChecks();
+        SimultaneousBanner();
+    }
+    internal static void EditorChecks()
+    {
         foreach (double width in new[] { 380d,400d,520d })
         {
             var editor=Create(null); editor.Width=width;
@@ -23,7 +28,7 @@ internal static class ReminderEditorChecks
                 for (int i=0;i<fields.Length;i++)
                 {
                     var box=Find(editor,fields[i]);
-                    Require(box.Text==defaults[i] && box.TextAlignment==TextAlignment.Center && box.ActualWidth==(i==0 ? 42 : 30),"numeric defaults and integer width: "+fields[i]);
+                    Require(box.Text==defaults[i] && box.TextAlignment==TextAlignment.Center && box.ActualWidth==42,"numeric defaults and integer width: "+fields[i]);
                     Require(!InputMethod.GetIsInputMethodEnabled(box) && !box.AllowDrop,"numeric IME and drop restrictions");
                     var paste=new DataObjectPastingEventArgs(new DataObject(DataFormats.UnicodeText,"1.5"),false,DataFormats.UnicodeText);
                     box.RaiseEvent(paste); Require(paste.CommandCancelled,"noninteger paste rejected");
@@ -63,7 +68,6 @@ internal static class ReminderEditorChecks
             Require(Build(edit,out var changed) && changed.CompletedReminderDates.Count==0,"reminder configuration edit resets completion");
         }
         finally { edit.Close(); }
-        SimultaneousBanner();
         Console.WriteLine("PASS: rounded reminder settings, 30/3/3/1 defaults, strict numeric inputs and editor widths 380/400/520");
     }
     private static void SimultaneousBanner()

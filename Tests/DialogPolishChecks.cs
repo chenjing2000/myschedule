@@ -13,9 +13,14 @@ internal static class DialogPolishChecks
 {
     public static void Run()
     {
-        foreach (double width in new[] { 380d,400d,520d }) Editor(width);
+        EditorLayouts();
         DaySelection();
         Console.WriteLine("PASS: compact reminder row, label colors, six-option dropdowns and transient feathered selection");
+    }
+    internal static void EditorLayouts()
+    {
+        foreach (double width in new[] { 380d,400d,520d }) Editor(width);
+        Console.WriteLine("PASS: reminder layout at 380/400/520 DIP");
     }
     private static void Editor(double width)
     {
@@ -29,7 +34,7 @@ internal static class DialogPolishChecks
             var names=new[] { "ReminderCountTextBox","ReminderIntervalTextBox","ReminderDurationTextBox" };
             var boxes=names.Select(name=>(TextBox)editor.FindName(name)).ToArray();
             var bounds=boxes.Select(box=>box.TransformToAncestor(frame).TransformBounds(new Rect(box.RenderSize))).ToArray();
-            Require(boxes.All(box=>box.ActualWidth==30) && bounds.All(rect=>Math.Abs(rect.Top-bounds[0].Top)<.5),"three reminder fields share one row and 30 DIP widths");
+            Require(boxes.All(box=>box.ActualWidth==42) && bounds.All(rect=>Math.Abs(rect.Top-bounds[0].Top)<.5),"three reminder fields share one row and 42 DIP widths");
             foreach (var box in boxes) { box.Text="99"; box.CaretIndex=2; box.UpdateLayout(); Require(box.GetRectFromCharacterIndex(1,true).Right<=box.ActualWidth-1,"two digits and caret fit compact field"); }
             foreach (var element in Children<FrameworkElement>(frame).Where(e=>e is TextBox or TextBlock))
             {
@@ -38,9 +43,12 @@ internal static class DialogPolishChecks
             }
             var primary=((Brush)editor.FindResource("TextPrimaryBrush")).ToString();
             var secondary=((Brush)editor.FindResource("TextSecondaryBrush")).ToString();
-            foreach (var text in Children<TextBlock>(frame).Where(t=>t.Text is "次，间隔" or "分钟，时长" or "分钟"))
+            foreach (var text in Children<TextBlock>(frame).Where(t=>t.Text is "次，间隔" or "分，时长" or "分"))
                 Require(text.Foreground.ToString()==primary,"later labels match first-label color");
-            var hint=Children<Run>(frame).Single(run=>run.Text.Contains("准点提醒"));
+            Require(boxes.All(box=>box.Margin.Left==6 && box.Margin.Right==6),"compact inputs have six DIP spacing on both sides");
+            Require(Children<TextBlock>(frame).Any(text=>text.Text=="提前") && Children<TextBlock>(frame).Any(text=>text.Text=="提醒"),"new shortened reminder labels");
+            Require(Children<Run>(frame).Any(run=>run.Text=="分钟提醒"),"advance unit wording");
+            var hint=Children<Run>(frame).Single(run=>run.Text=="（0=准点提醒）");
             Require(hint.Foreground.ToString()==secondary,"zero-minute explanatory text remains secondary");
             if (width==400) Capture((FrameworkElement)editor.Content,"compact-reminder-settings");
         }

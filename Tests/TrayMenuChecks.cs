@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -52,7 +52,7 @@ internal static class TrayMenuChecks
             Require(Children<Border>(first).Any(b=>b.CornerRadius==new CornerRadius(4)),"item highlight has rounded corners");
             Press(menu,Key.Escape);Pump();
             Require(!menu.IsOpen,"Escape dismisses menu");
-            OutsideClick(tray,menu);
+            OutsideClick(tray.ShowMenu,menu);
             Require(!menu.IsOpen,"real outside click dismisses menu");
             ScreenEdge(tray,menu);
             tray.ShowMenu();Pump();
@@ -85,7 +85,7 @@ internal static class TrayMenuChecks
         }
         finally { menu.IsOpen=false;SetCursorPos(previous.X,previous.Y);Pump(); }
     }
-    private static void OutsideClick(TrayService tray,ContextMenu menu)
+    internal static void OutsideClick(Action showMenu,ContextMenu menu)
     {
         var outside=new Window { Left=SystemParameters.WorkArea.Left+30,Top=SystemParameters.WorkArea.Top+30,
             Width=320,Height=200,WindowStyle=WindowStyle.None,ResizeMode=ResizeMode.NoResize,
@@ -93,7 +93,7 @@ internal static class TrayMenuChecks
         GetCursorPos(out var previous);
         try
         {
-            outside.Show();tray.ShowMenu();Pump();
+            outside.Show();showMenu();Pump();
             Require(menu.IsOpen,"menu opens before native outside click");
             GetWindowRect(((HwndSource)PresentationSource.FromVisual(menu)).Handle,out var bounds);
             var point=new[] { new Point(20,20),new Point(300,20),new Point(20,180),new Point(300,180) }
@@ -116,8 +116,8 @@ internal static class TrayMenuChecks
     [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool SetCursorPos(int x,int y);
     [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr window,out NativeRect rect);
     [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern void mouse_event(uint flags,uint x,uint y,uint data,UIntPtr extra);
-    private static void Press(UIElement element,Key key) => element.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,PresentationSource.FromVisual(element),0,key) { RoutedEvent=Keyboard.KeyDownEvent });
-    private static void Pump() { var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame); }
+    internal static void Press(UIElement element,Key key) => element.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,PresentationSource.FromVisual(element),0,key) { RoutedEvent=Keyboard.KeyDownEvent });
+    internal static void Pump() { var frame=new DispatcherFrame();Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,new Action(()=>frame.Continue=false));Dispatcher.PushFrame(frame); }
     private static void Require(bool condition,string message) { if(!condition)throw new Exception(message); }
     private static IEnumerable<T> Children<T>(DependencyObject root) where T:DependencyObject
     {

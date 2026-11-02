@@ -46,6 +46,17 @@ internal static class Program
         {
             Source = new Uri("/OneSchedule;component/Resources/Theme.xaml", UriKind.Relative)
         });
+        if (args.Contains("--reminder-editor-checks"))
+        {
+            try
+            {
+                DialogPolishChecks.EditorLayouts();
+                ReminderEditorChecks.EditorChecks();
+                return 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+            finally { app.Shutdown(); }
+        }
         var window = new MainWindow();
         try
         {
