@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Media;
 using System.Windows.Input;
 using OneSchedule;
 
@@ -133,10 +132,11 @@ internal static class SettingsChecks
             Require(checkbox.IsChecked == true && error.Visibility == Visibility.Collapsed,
                 "menu initially displays default-on checkbox without an error");
             Require(checkbox.StaysOpenOnClick && menu.IsOpen, "toggle keeps menu open");
-            Require(HasRoundedBorder(checkbox), "settings checkbox renders a custom rounded border");
             var label = ((StackPanel)checkbox.Header).Children.OfType<TextBlock>().First();
             var box = (Border)checkbox.Template.FindName("Box", checkbox);
             var labelBounds = label.TransformToAncestor(checkbox).TransformBounds(new Rect(label.RenderSize));
+            Require(box.ActualWidth == 16 && box.ActualHeight == 16 && box.CornerRadius == new CornerRadius(4),
+                "startup checkbox is 16 by 16 DIP with a 4 DIP corner radius");
             var boxBounds = box.TransformToAncestor(checkbox).TransformBounds(new Rect(box.RenderSize));
             Require(Math.Abs(boxBounds.Left - labelBounds.Right - 6) < .1,
                 "startup label and checkbox have exactly 6 DIP spacing");
@@ -185,16 +185,6 @@ internal static class SettingsChecks
         finally { menu.IsOpen = false; window.Close(); }
     }
 
-    private static bool HasRoundedBorder(DependencyObject parent)
-    {
-        for (int index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is Border { CornerRadius: var radius } && radius == new CornerRadius(5)) return true;
-            if (HasRoundedBorder(child)) return true;
-        }
-        return false;
-    }
     private static void Require(bool condition, string message)
     {
         if (!condition) throw new Exception("Settings check failed: " + message);
